@@ -1,16 +1,10 @@
 // Firebase v9 Modular
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
 import {
-  getFirestore,
-  doc,
-  setDoc,
-  getDoc,
-  deleteDoc,
-  collection,
-  getDocs
+  getFirestore, doc, setDoc, getDoc, deleteDoc, collection, getDocs
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
-/* 🔹 إعدادات مشروعك */
+// 🔹 إعدادات Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyCN4t4vm_w93wV2ZSLHKyzOehXslkTxQCM",
   authDomain: "oil-form.firebaseapp.com",
@@ -21,7 +15,6 @@ const firebaseConfig = {
   measurementId: "G-EL6DS942NF"
 };
 
-// 🔹 تشغيل Firebase
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
@@ -29,109 +22,153 @@ const db = getFirestore(app);
 const saveBtn = document.getElementById("saveBtn");
 const searchBtn = document.getElementById("searchBtn");
 const deleteBtn = document.getElementById("deleteBtn");
+const copyBtn = document.getElementById("copyBtn");
 const vehicleList = document.getElementById("vehicleList");
 
-// =============================
-// حفظ أو تحديث
-// =============================
+const typeSelect = document.getElementById('type');
+const typeOther = document.getElementById('typeOther');
+const filterSelect = document.getElementById('filter');
+const filterOther = document.getElementById('filterOther');
+const lastKmSelect = document.getElementById('lastKmSelect');
+const lastKmOther = document.getElementById('lastKmOther');
+const lastKmInput = document.getElementById('lastKm');
+
+// قوائم اختيار
+typeSelect.addEventListener('change', () => {
+  typeOther.style.display = typeSelect.value === 'اخرى' ? 'block' : 'none';
+});
+
+filterSelect.addEventListener('change', () => {
+  filterOther.style.display = filterSelect.value === 'اخرى' ? 'block' : 'none';
+});
+
+lastKmSelect.addEventListener('change', () => {
+  if (lastKmSelect.value === 'none') {
+    lastKmOther.style.display = 'block';
+    lastKmInput.style.display = 'none';
+  } else {
+    lastKmOther.style.display = 'none';
+    lastKmInput.style.display = 'block';
+  }
+});
+
+// تخزين المركبات محليًا للنص النهائي
+let vehicles = {};
+
+// دالة لتنسيق التاريخ
+function formatDate(dateStr) {
+  if (!dateStr) return '';
+  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const d = new Date(dateStr);
+  const yyyy = d.getFullYear();
+  const mm = months[d.getMonth()];
+  const dd = String(d.getDate()).padStart(2,'0');
+  return `${yyyy}/${mm}/${dd}`;
+}
+
+// حفظ أو تحديث المركبة
 saveBtn.addEventListener("click", async () => {
   const number = document.getElementById("number").value.trim();
+  if (!number) { alert("ادخل رقم المعدة"); return; }
 
-  if (!number) {
-    alert("ادخل رقم المعدة");
-    return;
-  }
+  const typeText = typeSelect.value==='اخرى'? typeOther.value : typeSelect.value;
+  const filterText = filterSelect.value==='اخرى'? filterOther.value : filterSelect.value;
+  const currentKm = Number(document.getElementById("currentKm").value);
+  const lastKmVal = lastKmSelect.value==='none'? lastKmOther.value : lastKmInput.value;
 
   const data = {
-    type: document.getElementById("type").value,
-    date: document.getElementById("date").value,
-    currentKm: Number(document.getElementById("currentKm").value),
-    lastKm: Number(document.getElementById("lastKm").value),
-    filter: document.getElementById("filter").value,
+    type: typeText,
+    date: formatDate(document.getElementById("date").value),
+    currentKm,
+    lastKm: lastKmVal,
+    filter: filterText,
     updatedAt: new Date()
   };
 
-  await setDoc(doc(db, "vehicles", number), data);
+  // حفظ/تحديث Firebase
+  await setDoc(doc(db,"vehicles",number), data);
 
-  alert("✅ تم الحفظ أو التحديث بنجاح");
+  // تخزين محلي للنص النهائي
+  if (!vehicles[typeText]) vehicles[typeText] = [];
+  vehicles[typeText].push({ text:data, km: currentKm });
+
+  // ترتيب حسب الممشى
+  for (let t in vehicles) vehicles[t].sort((a,b)=>b.km - a.km);
+
+  renderOutput();
+
   clearForm();
-  loadVehicles();
 });
 
-// =============================
-// بحث
-// =============================
-searchBtn.addEventListener("click", async () => {
-  const number = document.getElementById("searchNumber").value.trim();
-
-  if (!number) {
-    alert("ادخل رقم للبحث");
-    return;
+// دالة عرض النص النهائي
+function renderOutput() {
+  let outputText = '';
+  for (let type in vehicles) {
+    outputText += `\n${type}:\n`;
+    vehicles[type].forEach(v=>{
+      const diff = v.text.lastKm && !isNaN(v.text.lastKm)? v.text.currentKm - Number(v.text.lastKm) : '';
+      outputText += `
+رقم المعدة: ${v.text.number||''}
+نوع المعدة: ${v.text.type}
+الممشى الحالي: ${v.text.currentKm}
+ممشى آخر تغيير زيت: ${v.text.lastKm}${diff!==''? '\nالممشى منذ آخر تغيير: '+diff :''}
+تاريخ آخر تغيير زيت: ${v.text.date}
+حالة فلتر الزيت: ${v.text.filter}
+----------------------
+`;
+    });
   }
+  document.getElementById('output').innerText = outputText.trim();
+}
 
-  const docRef = doc(db, "vehicles", number);
+// نسخ النص النهائي
+copyBtn.addEventListener("click", ()=>{
+  navigator.clipboard.writeText(document.getElementById('output').innerText);
+  alert('تم النسخ');
+});
+
+// بحث وتحميل المركبة
+searchBtn.addEventListener("click", async ()=>{
+  const number = document.getElementById("searchNumber").value.trim();
+  if (!number){ alert("ادخل رقم للبحث"); return; }
+
+  const docRef = doc(db,"vehicles",number);
   const docSnap = await getDoc(docRef);
-
-  if (docSnap.exists()) {
+  if (docSnap.exists()){
     const data = docSnap.data();
-
     document.getElementById("number").value = number;
-    document.getElementById("type").value = data.type;
+    if (typeSelect.querySelector(`option[value="${data.type}"]`)) typeSelect.value=data.type;
+    else { typeSelect.value='اخرى'; typeOther.value=data.type; typeOther.style.display='block'; }
     document.getElementById("date").value = data.date;
     document.getElementById("currentKm").value = data.currentKm;
-    document.getElementById("lastKm").value = data.lastKm;
-    document.getElementById("filter").value = data.filter;
+    if (data.lastKm && !isNaN(data.lastKm)) { lastKmInput.value=data.lastKm; lastKmInput.style.display='block'; lastKmOther.style.display='none'; }
+    else { lastKmOther.value=data.lastKm; lastKmInput.style.display='none'; lastKmOther.style.display='block'; lastKmSelect.value='none'; }
+    if (filterSelect.querySelector(`option[value="${data.filter}"]`)) filterSelect.value=data.filter;
+    else { filterSelect.value='اخرى'; filterOther.value=data.filter; filterOther.style.display='block'; }
 
-    alert("📦 تم تحميل البيانات");
-  } else {
-    alert("❌ المركبة غير موجودة");
-  }
+    alert('📦 تم تحميل البيانات');
+  } else alert('❌ المركبة غير موجودة');
 });
 
-// =============================
-// حذف
-// =============================
-deleteBtn.addEventListener("click", async () => {
+// حذف المركبة
+deleteBtn.addEventListener("click", async ()=>{
   const number = document.getElementById("searchNumber").value.trim();
-
-  if (!number) {
-    alert("ادخل رقم للحذف");
-    return;
-  }
-
-  await deleteDoc(doc(db, "vehicles", number));
-  alert("🗑 تم الحذف");
-  loadVehicles();
+  if (!number){ alert("ادخل رقم للحذف"); return; }
+  await deleteDoc(doc(db,"vehicles",number));
+  alert('🗑 تم الحذف');
 });
 
-// =============================
-// عرض كل المركبات
-// =============================
-async function loadVehicles() {
-  vehicleList.innerHTML = "";
-  const querySnapshot = await getDocs(collection(db, "vehicles"));
-
-  querySnapshot.forEach((docItem) => {
-    const div = document.createElement("div");
-    div.className = "vehicle-item";
-    div.innerHTML = `
-      <strong>رقم المعدة:</strong> ${docItem.id}
-      <hr>
-    `;
-    vehicleList.appendChild(div);
-  });
-}
-
-// =============================
 // تفريغ النموذج
-// =============================
-function clearForm() {
-  document.getElementById("number").value = "";
-  document.getElementById("type").value = "";
-  document.getElementById("date").value = "";
-  document.getElementById("currentKm").value = "";
-  document.getElementById("lastKm").value = "";
-  document.getElementById("filter").value = "";
+function clearForm(){
+  document.getElementById("number").value='';
+  typeSelect.value=typeSelect.options[0].value;
+  typeOther.value='';
+  typeOther.style.display='none';
+  document.getElementById("date").value='';
+  document.getElementById("currentKm").value='';
+  lastKmInput.value=''; lastKmInput.style.display='block';
+  lastKmOther.value=''; lastKmOther.style.display='none';
+  filterSelect.value=filterSelect.options[0].value;
+  filterOther.value='';
+  filterOther.style.display='none';
 }
-
-loadVehicles();
