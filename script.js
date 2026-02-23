@@ -126,6 +126,17 @@ async function loadVehicles(){
 // =================== تحديث النص النهائي ===================
 function updateOutput(){
   let text = "";
+
+  // الحصول على تاريخ اليوم بصيغة yyyy/mm/dd
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0"); // +1 لأن الأشهر تبدأ من 0
+  const day = String(today.getDate()).padStart(2, "0");
+  const todayFormatted = `${year}/${month}/${day}`;
+
+  // إضافة سطر العنوان في البداية
+  text += `المتابعة اليومية للزيوت / تاريخ: ${todayFormatted}\n\n`;
+
   // ترتيب الأنواع أبجدياً
   const sortedTypes = Object.keys(sessionVehicles).sort();
   sortedTypes.forEach(type => {
@@ -144,6 +155,7 @@ function updateOutput(){
 ----------------------\n`;
     });
   });
+
   outputDiv.innerText = text.trim();
 }
 
