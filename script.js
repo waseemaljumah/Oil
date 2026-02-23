@@ -132,7 +132,7 @@ function updateOutput(){
     sessionVehicles[type].sort((a,b)=>b.kmDiff-a.kmDiff).forEach(v=>{
       const dateParts = v.data.date.split("-");
       const formattedDate = dateParts.length===3 ? `${dateParts[0]}/${dateParts[1]}/${dateParts[2]}` : v.data.date;
-      text+=`رقم المعدة: ${v.number}\nالممشى الحالي: ${v.data.currentKm}\nممشى آخر تغيير زيت: ${v.data.lastKm}\nكم مشى منذ آخر تغيير: ${v.data.kmSinceLastChange}\nتاريخ آخر تغيير زيت: ${formattedDate}\nحالة فلتر الزيت: ${v.data.filter}\n----------------------\n`;
+      text+=`رقم المعدة: ${v.number}\nالممشى الحالي: ${v.data.currentKm}\nممشى آخر تغيير زيت: ${v.data.lastKm}\nالممشى منذ آخر تغيير: ${v.data.kmSinceLastChange}\nتاريخ آخر تغيير زيت: ${formattedDate}\nحالة فلتر الزيت: ${v.data.filter}\n----------------------\n`;
     });
   });
   outputDiv.innerText = text.trim();
