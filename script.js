@@ -1,9 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-import {
-  getFirestore, doc, setDoc, getDoc, deleteDoc, collection, getDocs
-} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+import { getFirestore, doc, setDoc, getDoc, deleteDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
-// Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyCN4t4vm_w93wV2ZSLHKyzOehXslkTxQCM",
   authDomain: "oil-form.firebaseapp.com",
@@ -17,7 +14,6 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// عناصر الصفحة
 const saveBtn = document.getElementById("saveBtn");
 const searchBtn = document.getElementById("searchBtn");
 const deleteBtn = document.getElementById("deleteBtn");
@@ -41,7 +37,6 @@ lastKmSelect.addEventListener("change", ()=>{
   else { lastKmOther.style.display="none"; lastKmInput.style.display="block"; }
 });
 
-// تخزين بيانات الجلسة اليوم
 let sessionVehicles = {};
 
 // =================== حفظ / تحديث ===================
@@ -55,22 +50,23 @@ saveBtn.addEventListener("click", async ()=>{
   const currentKmVal = Number(document.getElementById("currentKm").value);
   const dateVal = document.getElementById("date").value;
 
+  const kmDiff = lastKmVal && !isNaN(lastKmVal) ? currentKmVal - Number(lastKmVal) : 0;
+
   const data = {
     type: typeVal,
     date: dateVal,
     currentKm: currentKmVal,
     lastKm: lastKmVal,
+    kmSinceLastChange: kmDiff,
     filter: filterVal,
     updatedAt: new Date()
   };
 
   await setDoc(doc(db,"vehicles",number), data);
 
-  // تحديث النص النهائي
   if(!sessionVehicles[typeVal]) sessionVehicles[typeVal]=[];
-  // إزالة المعدة إذا موجودة سابقاً
   sessionVehicles[typeVal] = sessionVehicles[typeVal].filter(v=>v.number!==number);
-  sessionVehicles[typeVal].push({number, data, km: currentKmVal});
+  sessionVehicles[typeVal].push({number, data, kmDiff});
 
   updateOutput();
   clearForm();
@@ -121,7 +117,8 @@ async function loadVehicles(){
   querySnapshot.forEach(docItem=>{
     const div = document.createElement("div");
     div.className="vehicle-item";
-    div.innerHTML=`<strong>رقم المعدة:</strong> ${docItem.id} <strong>النوع:</strong> ${docItem.data().type}`;
+    const data = docItem.data();
+    div.innerHTML=`<strong>رقم المعدة:</strong> ${docItem.id} <strong>النوع:</strong> ${data.type} <strong>ممشى منذ آخر تغيير:</strong> ${data.kmSinceLastChange || 0}`;
     vehicleList.appendChild(div);
   });
 }
@@ -132,13 +129,13 @@ function updateOutput(){
   const sortedTypes = Object.keys(sessionVehicles).sort();
   sortedTypes.forEach(type=>{
     text+=`\n${type}:\n`;
-    sessionVehicles[type].sort((a,b)=>b.km-a.km).forEach(v=>{
-      const dateParts = v.data.date.split("-"); 
-      const formattedDate = dateParts.length===3? `${dateParts[0]}/${new Date(v.data.date).toLocaleString('en-us',{month:'short'})}/${dateParts[2]}` : v.data.date;
-      text+=`رقم المعدة: ${v.number}\nالممشى الحالي: ${v.data.currentKm}\nممشى آخر تغيير زيت: ${v.data.lastKm}\nتاريخ آخر تغيير زيت: ${formattedDate}\nحالة فلتر الزيت: ${v.data.filter}\n----------------------\n`;
+    sessionVehicles[type].sort((a,b)=>b.kmDiff-a.kmDiff).forEach(v=>{
+      const dateParts = v.data.date.split("-");
+      const formattedDate = dateParts.length===3 ? `${dateParts[0]}/${dateParts[1]}/${dateParts[2]}` : v.data.date;
+      text+=`رقم المعدة: ${v.number}\nالممشى الحالي: ${v.data.currentKm}\nممشى آخر تغيير زيت: ${v.data.lastKm}\nكم مشى منذ آخر تغيير: ${v.data.kmSinceLastChange}\nتاريخ آخر تغيير زيت: ${formattedDate}\nحالة فلتر الزيت: ${v.data.filter}\n----------------------\n`;
     });
   });
-  outputDiv.innerText=text.trim();
+  outputDiv.innerText = text.trim();
 }
 
 // =================== نسخ النص ===================
