@@ -6,6 +6,7 @@
   <title>نظام متابعة تغيير الزيت</title>
   <link rel="stylesheet" href="style.css" />
   <script type="module" src="script.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -61,14 +62,19 @@
 </div>
 
 <div class="card">
+  <h3>المتابعة اليومية</h3>
+  <div id="output"></div>
+  <button id="copyBtn">نسخ المتابعة اليومية</button>
+</div>
+
+<div class="card">
   <h3>المركبات المخزنة</h3>
   <div id="vehicleList"></div>
 </div>
 
 <div class="card">
-  <h3>المتابعة اليومية</h3>
-  <div id="output"></div>
-  <button id="copyBtn">نسخ المتابعة اليومية</button>
+  <h3>تصدير البيانات</h3>
+  <button id="exportBtn">تصدير إلى Excel</button>
 </div>
 
 </body>

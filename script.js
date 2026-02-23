@@ -176,4 +176,56 @@ function clearForm(){
   filterOther.value="";
 }
 
+const exportBtn = document.getElementById("exportBtn");
+
+exportBtn.addEventListener("click", async () => {
+  //  جلب كل المركبات من Firestore
+  const querySnapshot = await getDocs(collection(db, "vehicles"));
+  let dataArray = [];
+
+  querySnapshot.forEach(docItem => {
+    const d = docItem.data();
+    const currentKm = Number(d.currentKm) || 0;
+    const lastKm = Number(d.lastKm) || 0;
+    const kmDiff = currentKm - lastKm;
+
+
+    const dateParts = d.date.split("-");
+    const formattedDate = dateParts.length === 3 ? `${dateParts[0]}/${dateParts[1]}/${dateParts[2]}` : d.date;
+
+    dataArray.push({
+      "نوع المعدة": d.type,
+      "رقم المعدة": docItem.id,
+      "الممشى الحالي": currentKm,
+      "ممشى آخر تغيير زيت": lastKm,
+      "الممشى منذ آخر تغيير": kmDiff,
+      "تاريخ آخر تغيير زيت": formattedDate,
+      "حالة فلتر الزيت": d.filter
+    });
+  });
+
+
+  dataArray.sort((a, b) => {
+    if (a["نوع المعدة"] < b["نوع المعدة"]) return -1;
+    if (a["نوع المعدة"] > b["نوع المعدة"]) return 1;
+    return b["الممشى الحالي"] - a["الممشى الحالي"];
+  });
+
+
+  const worksheet = XLSX.utils.json_to_sheet(dataArray, { origin: 1 });
+
+
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, "0");
+  const dd = String(today.getDate()).padStart(2, "0");
+  XLSX.utils.sheet_add_aoa(worksheet, [[`المتابعة اليومية للزيوت / تاريخ: ${yyyy}/${mm}/${dd}`]], { origin: 0 });
+
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "المركبات");
+
+
+  XLSX.writeFile(workbook, "متابعة_المركبات.xlsx");
+});
+
 loadVehicles();
