@@ -4,18 +4,17 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>نظام متابعة تغيير الزيت</title>
-
   <link rel="stylesheet" href="style.css" />
+  <!-- Firebase + Script -->
   <script type="module" src="script.js"></script>
 </head>
-
 <body>
 
 <h2>نموذج إدخال بيانات المركبات</h2>
 
 <div class="card">
   <label>رقم المعدة</label>
-  <input id="number" placeholder="ادخل رقم المعدة" />
+  <input id="number" />
 
   <label>نوع المعدة</label>
   <select id="type">
@@ -31,7 +30,18 @@
   <label>تاريخ آخر تغيير زيت</label>
   <input type="date" id="date" />
 
-  <label>فلتر الزيت</label>
+  <label>الممشى الحالي</label>
+  <input type="number" id="currentKm" />
+
+  <label>ممشى آخر تغيير زيت</label>
+  <input type="number" id="lastKm" />
+  <select id="lastKmSelect">
+    <option value="">يوجد ممشى</option>
+    <option value="no">لا يوجد ممشى</option>
+  </select>
+  <input id="lastKmOther" placeholder="اكتب الملاحظة" />
+
+  <label>حالة فلتر الزيت</label>
   <select id="filter">
     <option value="تم تغييره في آخر تغيير">تم تغييره في آخر تغيير</option>
     <option value="تم تغييره في التغيير قبل الأخير">تم تغييره في التغيير قبل الأخير</option>
@@ -40,30 +50,18 @@
   </select>
   <input id="filterOther" placeholder="اكتب حالة الفلتر" />
 
-  <label>الممشى الحالي</label>
-  <input type="number" id="currentKm" />
-
-  <label>ممشى آخر تغيير زيت</label>
-  <select id="lastKmSelect">
-    <option value="">يوجد ممشى لآخر تغيير زيت</option>
-    <option value="none">لا يوجد ممشى</option>
-  </select>
-  <input id="lastKmOther" placeholder="اكتب الملاحظة أو رقم الممشى" />
-
   <button id="saveBtn">حفظ / تحديث</button>
 </div>
 
 <div class="card">
-  <h3>البحث عن مركبة</h3>
-  <input id="searchNumber" placeholder="ادخل رقم المعدة" />
-  <button id="searchBtn">بحث</button>
-  <button id="deleteBtn">حذف</button>
+  <h3>النص الجاهز للإرسال</h3>
+  <div id="output"></div>
+  <button id="copyBtn">نسخ النص</button>
 </div>
 
 <div class="card">
-  <h3>النص النهائي للإرسال</h3>
-  <div id="output"></div>
-  <button id="copyBtn">نسخ النص</button>
+  <h3>المركبات المخزنة</h3>
+  <div id="vehicleList"></div>
 </div>
 
 </body>
