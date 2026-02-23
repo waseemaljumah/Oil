@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>نظام متابعة تغيير الزيت</title>
   <link rel="stylesheet" href="style.css" />
-  <!-- Firebase + Script -->
   <script type="module" src="script.js"></script>
 </head>
 <body>
@@ -14,10 +13,10 @@
 
 <div class="card">
   <label>رقم المعدة</label>
-  <input id="number" />
+  <input id="number" placeholder="رقم المعدة"/>
 
   <label>نوع المعدة</label>
-  <select id="type">
+  <select id="typeSelect">
     <option value="قلاب فولفو">قلاب فولفو</option>
     <option value="قلاب مرسيدس">قلاب مرسيدس</option>
     <option value="شيول">شيول</option>
@@ -34,15 +33,15 @@
   <input type="number" id="currentKm" />
 
   <label>ممشى آخر تغيير زيت</label>
-  <input type="number" id="lastKm" />
+  <input type="number" id="lastKmInput" />
   <select id="lastKmSelect">
-    <option value="">يوجد ممشى</option>
+    <option value="">يوجد ممشى لآخر تغيير زيت</option>
     <option value="no">لا يوجد ممشى</option>
   </select>
   <input id="lastKmOther" placeholder="اكتب الملاحظة" />
 
   <label>حالة فلتر الزيت</label>
-  <select id="filter">
+  <select id="filterSelect">
     <option value="تم تغييره في آخر تغيير">تم تغييره في آخر تغيير</option>
     <option value="تم تغييره في التغيير قبل الأخير">تم تغييره في التغيير قبل الأخير</option>
     <option value="لم يتم تغييره في آخر تغييرين">لم يتم تغييره في آخر تغييرين</option>
@@ -54,14 +53,21 @@
 </div>
 
 <div class="card">
-  <h3>النص الجاهز للإرسال</h3>
-  <div id="output"></div>
-  <button id="copyBtn">نسخ النص</button>
+  <h3>بحث وحذف</h3>
+  <input id="searchNumber" placeholder="ادخل رقم المعدة للبحث" />
+  <button id="searchBtn">بحث</button>
+  <button id="deleteBtn">حذف</button>
 </div>
 
 <div class="card">
   <h3>المركبات المخزنة</h3>
   <div id="vehicleList"></div>
+</div>
+
+<div class="card">
+  <h3>النص النهائي للإرسال</h3>
+  <div id="output"></div>
+  <button id="copyBtn">نسخ النص</button>
 </div>
 
 </body>
