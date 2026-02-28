@@ -33,13 +33,8 @@ const lastKmInput = document.getElementById("lastKmInput");
 typeSelect.addEventListener("change", ()=>{ typeOther.style.display = typeSelect.value==="اخرى"?"block":"none"; });
 filterSelect.addEventListener("change", ()=>{ filterOther.style.display = filterSelect.value==="اخرى"?"block":"none"; });
 lastKmSelect.addEventListener("change", ()=>{
-  if(lastKmSelect.value==="no_meter" || lastKmSelect.value==="other"){
-    lastKmOther.style.display="block"; lastKmInput.style.display="none";
-    if(lastKmSelect.value==="no_meter") lastKmOther.value="لا يوجد عداد في اخر تغيير زيت";
-    else lastKmOther.value="";
-  } else {
-    lastKmOther.style.display="none"; lastKmInput.style.display="block";
-  }
+  if(lastKmSelect.value==="no"){ lastKmOther.style.display="block"; lastKmInput.style.display="none"; }
+  else { lastKmOther.style.display="none"; lastKmInput.style.display="block"; }
 });
 
 let sessionVehicles = {};
@@ -51,7 +46,7 @@ saveBtn.addEventListener("click", async ()=>{
 
   const typeVal = typeSelect.value==="اخرى"? typeOther.value : typeSelect.value;
   const filterVal = filterSelect.value==="اخرى"? filterOther.value : filterSelect.value;
-  const lastKmVal = (lastKmSelect.value==="no_meter" || lastKmSelect.value==="other")? lastKmOther.value : lastKmInput.value || 0;
+  const lastKmVal = lastKmSelect.value==="no"? lastKmOther.value : lastKmInput.value || 0;
   const currentKmVal = Number(document.getElementById("currentKm").value);
   const dateVal = document.getElementById("date").value;
 
@@ -88,15 +83,13 @@ searchBtn.addEventListener("click", async ()=>{
   if(docSnap.exists()){
     const data = docSnap.data();
     document.getElementById("number").value = number;
-    typeSelect.value = ["قلاب فولفو","لوبد فولفو","وايت فولفو","قلاب مرسيدس","وايت","شيول","بوكلين","بلدوزر","بوبكات"].includes(data.type)? data.type:"اخرى";
-    typeOther.value = typeSelect.value==="اخرى"? data.type:"";
+typeSelect.value = ["قلاب فولفو","لوبد فولفو","وايت فولفو","قلاب مرسيدس","وايت","شيول","بوكلين","بلدوزر","بوبكات"].includes(data.type)? data.type:"اخرى";    typeOther.value = typeSelect.value==="اخرى"? data.type:"";
     filterSelect.value = ["تم تغييره في آخر تغيير","تم تغييره في التغيير قبل الأخير","لم يتم تغييره في آخر تغييرين"].includes(data.filter)? data.filter:"اخرى";
     filterOther.value = filterSelect.value==="اخرى"? data.filter:"";
     document.getElementById("date").value = data.date;
     document.getElementById("currentKm").value = data.currentKm;
-    if(isNaN(data.lastKm) || data.lastKm==="-" || data.lastKm==="لا يوجد عداد في اخر تغيير زيت"){
-      lastKmSelect.value = data.lastKm==="لا يوجد عداد في اخر تغيير زيت" ? "no_meter" : "other";
-      lastKmOther.style.display="block"; lastKmInput.style.display="none"; lastKmOther.value=data.lastKm;
+    if(data.lastKm==="-" || isNaN(data.lastKm)){
+      lastKmSelect.value="no"; lastKmOther.style.display="block"; lastKmInput.style.display="none"; lastKmOther.value=data.lastKm;
     } else {
       lastKmSelect.value=""; lastKmOther.style.display="none"; lastKmInput.style.display="block"; lastKmInput.value=data.lastKm;
     }
@@ -202,7 +195,7 @@ async function loadVehicles(){
       if(docSnap.exists()){
         const data = docSnap.data();
         document.getElementById("number").value = id;
-        typeSelect.value = ["قلاب فولفو","لوبد فولفو","وايت فولفو","قلاب مرسيدس","وايت","شيول","بوكلين","بلدوزر","بوبكات"].includes(data.type)? data.type:"اخرى";
+        typeSelect.value = ["قلاب فولفو","قلاب مرسيدس","شيول","بلدوزر","بوبكات"].includes(data.type)? data.type:"اخرى";
         typeOther.value = typeSelect.value==="اخرى"? data.type:"";
         typeOther.style.display = typeSelect.value==="اخرى"?"block":"none";
         filterSelect.value = ["تم تغييره في آخر تغيير","تم تغييره في التغيير قبل الأخير","لم يتم تغييره في آخر تغييرين"].includes(data.filter)? data.filter:"اخرى";
@@ -210,9 +203,8 @@ async function loadVehicles(){
         filterOther.style.display = filterSelect.value==="اخرى"?"block":"none";
         document.getElementById("date").value = data.date;
         document.getElementById("currentKm").value = data.currentKm;
-        if(isNaN(data.lastKm) || data.lastKm==="-" || data.lastKm==="لا يوجد عداد في اخر تغيير زيت"){
-          lastKmSelect.value = data.lastKm==="لا يوجد عداد في اخر تغيير زيت" ? "no_meter" : "other";
-          lastKmOther.style.display="block"; lastKmInput.style.display="none"; lastKmOther.value=data.lastKm;
+        if(isNaN(data.lastKm) || data.lastKm==="-"){
+          lastKmSelect.value="no"; lastKmOther.style.display="block"; lastKmInput.style.display="none"; lastKmOther.value=data.lastKm;
         } else {
           lastKmSelect.value=""; lastKmOther.style.display="none"; lastKmInput.style.display="block"; lastKmInput.value=data.lastKm;
         }
@@ -228,16 +220,20 @@ async function loadVehicles(){
 function updateOutput(){
   let text = "";
 
+  // الحصول على تاريخ اليوم بصيغة yyyy/mm/dd
   const today = new Date();
   const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const month = String(today.getMonth() + 1).padStart(2, "0"); // +1 لأن الأشهر تبدأ من 0
   const day = String(today.getDate()).padStart(2, "0");
   const todayFormatted = `${year}/${month}/${day}`;
 
+  // إضافة سطر العنوان في البداية
   text += `المتابعة اليومية للزيوت / تاريخ: ${todayFormatted}\n\n`;
 
+  // ترتيب الأنواع أبجدياً
   const sortedTypes = Object.keys(sessionVehicles).sort();
   sortedTypes.forEach(type => {
+    // ترتيب المعدات حسب الممشى من الأعلى للأقل
     sessionVehicles[type].sort((a,b) => b.km - a.km);
     sessionVehicles[type].forEach(v => {
       const dateParts = v.data.date.split("-"); 
@@ -276,6 +272,7 @@ function clearForm(){
 const exportBtn = document.getElementById("exportBtn");
 
 exportBtn.addEventListener("click", async () => {
+  //  جلب كل المركبات من Firestore
   const querySnapshot = await getDocs(collection(db, "vehicles"));
   let dataArray = [];
 
@@ -284,6 +281,7 @@ exportBtn.addEventListener("click", async () => {
     const currentKm = Number(d.currentKm) || 0;
     const lastKm = Number(d.lastKm) || 0;
     const kmDiff = currentKm - lastKm;
+
 
     const dateParts = d.date.split("-");
     const formattedDate = dateParts.length === 3 ? `${dateParts[0]}/${dateParts[1]}/${dateParts[2]}` : d.date;
@@ -299,13 +297,16 @@ exportBtn.addEventListener("click", async () => {
     });
   });
 
+
   dataArray.sort((a, b) => {
     if (a["نوع المعدة"] < b["نوع المعدة"]) return -1;
     if (a["نوع المعدة"] > b["نوع المعدة"]) return 1;
     return b["الممشى الحالي"] - a["الممشى الحالي"];
   });
 
+
   const worksheet = XLSX.utils.json_to_sheet(dataArray, { origin: 1 });
+
 
   const today = new Date();
   const yyyy = today.getFullYear();
@@ -315,6 +316,7 @@ exportBtn.addEventListener("click", async () => {
 
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, "المركبات");
+
 
   XLSX.writeFile(workbook, "متابعة_المركبات.xlsx");
 });
