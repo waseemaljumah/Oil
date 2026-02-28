@@ -29,7 +29,7 @@ const lastKmSelect = document.getElementById("lastKmSelect");
 const lastKmOther = document.getElementById("lastKmOther");
 const lastKmInput = document.getElementById("lastKmInput");
 
-// التحكم بالحقول الأخرى
+
 typeSelect.addEventListener("change", ()=>{ typeOther.style.display = typeSelect.value==="اخرى"?"block":"none"; });
 filterSelect.addEventListener("change", ()=>{ filterOther.style.display = filterSelect.value==="اخرى"?"block":"none"; });
 lastKmSelect.addEventListener("change", ()=>{
@@ -83,8 +83,7 @@ searchBtn.addEventListener("click", async ()=>{
   if(docSnap.exists()){
     const data = docSnap.data();
     document.getElementById("number").value = number;
-    typeSelect.value = ["قلاب فولفو","قلاب مرسيدس","شيول","بلدوزر","بوبكات"].includes(data.type)? data.type:"اخرى";
-    typeOther.value = typeSelect.value==="اخرى"? data.type:"";
+typeSelect.value = ["قلاب فولفو","لوبد فولفو","وايت فولفو","قلاب مرسيدس","وايت","شيول","بوكلين","بلدوزر","بوبكات"].includes(data.type)? data.type:"اخرى";    typeOther.value = typeSelect.value==="اخرى"? data.type:"";
     filterSelect.value = ["تم تغييره في آخر تغيير","تم تغييره في التغيير قبل الأخير","لم يتم تغييره في آخر تغييرين"].includes(data.filter)? data.filter:"اخرى";
     filterOther.value = filterSelect.value==="اخرى"? data.filter:"";
     document.getElementById("date").value = data.date;
@@ -259,7 +258,7 @@ copyBtn.addEventListener("click", ()=>{ navigator.clipboard.writeText(outputDiv.
 // =================== تفريغ النموذج ===================
 function clearForm(){
   document.getElementById("number").value="";
-  typeSelect.value="قلاب فولفو";
+  typeSelect.value="قلاب مرسيدس";
   typeOther.value="";
   document.getElementById("date").value="";
   document.getElementById("currentKm").value="";
