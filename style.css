@@ -54,3 +54,11 @@ button:hover {
   border-bottom: 1px solid #ddd;
   font-size: 14px;
 }
+
+.group-header {
+  background-color: #e0e0e0;
+  padding: 6px 10px;
+  margin-top: 12px;
+  border-radius: 6px;
+  font-size: 15px;
+}

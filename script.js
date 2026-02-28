@@ -111,15 +111,40 @@ deleteBtn.addEventListener("click", async ()=>{
 });
 
 // =================== عرض كل المركبات ===================
+// =================== عرض كل المركبات ===================
 async function loadVehicles(){
   vehicleList.innerHTML="";
   const querySnapshot = await getDocs(collection(db,"vehicles"));
+
+  // تجميع المركبات حسب النوع
+  const grouped = {};
   querySnapshot.forEach(docItem=>{
-    const div = document.createElement("div");
-    div.className="vehicle-item";
     const data = docItem.data();
-    div.innerHTML=`<strong>رقم المعدة:</strong> ${docItem.id} <strong>النوع:</strong> ${data.type} <strong>ممشى منذ آخر تغيير:</strong> ${data.kmSinceLastChange || 0}`;
-    vehicleList.appendChild(div);
+    const type = data.type;
+    if(!grouped[type]) grouped[type] = [];
+    grouped[type].push({ id: docItem.id, data });
+  });
+
+  // ترتيب الأنواع أبجدياً
+  const sortedTypes = Object.keys(grouped).sort();
+
+  sortedTypes.forEach(type => {
+    // ترتيب المعدات داخل كل مجموعة من الأعلى للأقل
+    grouped[type].sort((a, b) => (b.data.kmSinceLastChange || 0) - (a.data.kmSinceLastChange || 0));
+
+    // عنوان المجموعة
+    const groupHeader = document.createElement("div");
+    groupHeader.className = "group-header";
+    groupHeader.innerHTML = `<strong>📂 ${type}</strong>`;
+    vehicleList.appendChild(groupHeader);
+
+    // عرض المعدات
+    grouped[type].forEach(v => {
+      const div = document.createElement("div");
+      div.className = "vehicle-item";
+      div.innerHTML = `<strong>رقم المعدة:</strong> ${v.id} &nbsp;|&nbsp; <strong>ممشى منذ آخر تغيير:</strong> ${v.data.kmSinceLastChange || 0}`;
+      vehicleList.appendChild(div);
+    });
   });
 }
 
