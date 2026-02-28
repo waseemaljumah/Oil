@@ -110,13 +110,12 @@ deleteBtn.addEventListener("click", async ()=>{
   alert("🗑 تم الحذف");
 });
 
-// =================== عرض كل المركبات ===================
+
 // =================== عرض كل المركبات ===================
 async function loadVehicles(){
   vehicleList.innerHTML="";
   const querySnapshot = await getDocs(collection(db,"vehicles"));
 
-  // تجميع المركبات حسب النوع
   const grouped = {};
   querySnapshot.forEach(docItem=>{
     const data = docItem.data();
@@ -125,28 +124,98 @@ async function loadVehicles(){
     grouped[type].push({ id: docItem.id, data });
   });
 
-  // ترتيب الأنواع أبجدياً
   const sortedTypes = Object.keys(grouped).sort();
 
   sortedTypes.forEach(type => {
-    // ترتيب المعدات داخل كل مجموعة من الأعلى للأقل
     grouped[type].sort((a, b) => (b.data.kmSinceLastChange || 0) - (a.data.kmSinceLastChange || 0));
 
-    // عنوان المجموعة
     const groupHeader = document.createElement("div");
     groupHeader.className = "group-header";
     groupHeader.innerHTML = `<strong>📂 ${type}</strong>`;
     vehicleList.appendChild(groupHeader);
 
-    // عرض المعدات
     grouped[type].forEach(v => {
       const div = document.createElement("div");
       div.className = "vehicle-item";
-      div.innerHTML = `<strong>رقم المعدة:</strong> ${v.id} &nbsp;|&nbsp; <strong>ممشى منذ آخر تغيير:</strong> ${v.data.kmSinceLastChange || 0}`;
+      div.innerHTML = `
+        <div class="item-row">
+          <span><strong>رقم المعدة:</strong> ${v.id} &nbsp;|&nbsp; <strong>الممشى منذ آخر تغيير:</strong> ${v.data.kmSinceLastChange || 0}</span>
+          <div class="item-btns">
+            <button class="btn-view" data-id="${v.id}">👁 عرض</button>
+            <button class="btn-delete" data-id="${v.id}">🗑 حذف</button>
+          </div>
+        </div>
+
+        <div class="vehicle-details" id="details-${v.id}" style="display:none;">
+          <p><strong>نوع المعدة:</strong> ${v.data.type}</p>
+          <p><strong>الممشى الحالي:</strong> ${v.data.currentKm}</p>
+          <p><strong>ممشى آخر تغيير زيت:</strong> ${v.data.lastKm}</p>
+          <p><strong>الممشى منذ آخر تغيير:</strong> ${v.data.kmSinceLastChange || 0}</p>
+          <p><strong>تاريخ آخر تغيير زيت:</strong> ${v.data.date}</p>
+          <p><strong>حالة فلتر الزيت:</strong> ${v.data.filter}</p>
+          <button class="btn-edit" data-id="${v.id}">✏️ تعديل</button>
+        </div>
+      `;
       vehicleList.appendChild(div);
     });
   });
+
+  // ===== زر عرض =====
+  document.querySelectorAll(".btn-view").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const id = btn.dataset.id;
+      const details = document.getElementById(`details-${id}`);
+      const isVisible = details.style.display === "block";
+      document.querySelectorAll(".vehicle-details").forEach(d => d.style.display = "none");
+      document.querySelectorAll(".btn-view").forEach(b => b.textContent = "👁 عرض");
+      if(!isVisible){
+        details.style.display = "block";
+        btn.textContent = "🔼 إخفاء";
+      }
+    });
+  });
+
+  // ===== زر حذف =====
+  document.querySelectorAll(".btn-delete").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const id = btn.dataset.id;
+      if(!confirm(`هل تريد حذف المعدة رقم ${id}؟`)) return;
+      await deleteDoc(doc(db,"vehicles",id));
+      for(let type in sessionVehicles){ sessionVehicles[type] = sessionVehicles[type].filter(v=>v.number!==id); }
+      updateOutput();
+      loadVehicles();
+      alert("🗑 تم الحذف");
+    });
+  });
+
+  // ===== زر تعديل =====
+  document.querySelectorAll(".btn-edit").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const id = btn.dataset.id;
+      const docSnap = await getDoc(doc(db,"vehicles",id));
+      if(docSnap.exists()){
+        const data = docSnap.data();
+        document.getElementById("number").value = id;
+        typeSelect.value = ["قلاب فولفو","قلاب مرسيدس","شيول","بلدوزر","بوبكات"].includes(data.type)? data.type:"اخرى";
+        typeOther.value = typeSelect.value==="اخرى"? data.type:"";
+        typeOther.style.display = typeSelect.value==="اخرى"?"block":"none";
+        filterSelect.value = ["تم تغييره في آخر تغيير","تم تغييره في التغيير قبل الأخير","لم يتم تغييره في آخر تغييرين"].includes(data.filter)? data.filter:"اخرى";
+        filterOther.value = filterSelect.value==="اخرى"? data.filter:"";
+        filterOther.style.display = filterSelect.value==="اخرى"?"block":"none";
+        document.getElementById("date").value = data.date;
+        document.getElementById("currentKm").value = data.currentKm;
+        if(isNaN(data.lastKm) || data.lastKm==="-"){
+          lastKmSelect.value="no"; lastKmOther.style.display="block"; lastKmInput.style.display="none"; lastKmOther.value=data.lastKm;
+        } else {
+          lastKmSelect.value=""; lastKmOther.style.display="none"; lastKmInput.style.display="block"; lastKmInput.value=data.lastKm;
+        }
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        alert("✏️ تم تحميل البيانات للتعديل، عدّل ثم اضغط حفظ/تحديث");
+      }
+    });
+  });
 }
+
 
 // =================== تحديث النص النهائي ===================
 function updateOutput(){

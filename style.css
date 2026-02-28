@@ -62,3 +62,38 @@ button:hover {
   border-radius: 6px;
   font-size: 15px;
 }
+
+.item-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.item-btns {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-view, .btn-delete, .btn-edit {
+  padding: 4px 12px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.btn-view   { background-color: #4a90d9; color: white; }
+.btn-delete { background-color: #e05555; color: white; }
+.btn-edit   { background-color: #f0a500; color: white; margin-top: 8px; }
+
+.vehicle-details {
+  margin-top: 10px;
+  padding: 10px;
+  background: #f9f9f9;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  font-size: 14px;
+  line-height: 1.8;
+}
