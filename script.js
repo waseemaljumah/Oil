@@ -44,15 +44,14 @@ function getStatusEmoji(type, kmSinceLastChange) {
   const km = Number(kmSinceLastChange) || 0;
 
   const volvoTypes = ["لوبد فولفو", "قلاب فولفو", "وايت فولفو"];
-  const heavyTypes = ["شيول", "بوكلين", "بلدوزر", "بوبكات"];
+  const heavyTypes = ["قريدر","شيول", "بوكلين", "بلدوزر", "بوبكات"];
 
   if (volvoTypes.includes(type)) {
     return km >= 5500 ? "🔴" : "🟢";
   } else if (type === "قلاب مرسيدس") {
     return km >= 9500 ? "🔴" : "🟢";
   } else if (heavyTypes.includes(type)) {
-    if (km >= 290) return "🔴";
-    if (km >= 250) return "🟠";
+    if (km >= 250) return "🔴";
     return "🟢";
   }
   return "";
