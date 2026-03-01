@@ -142,15 +142,17 @@ async function loadVehicles(){
 function renderVehicles(filterColor = "all"){
   vehicleList.innerHTML = "";
 
-  // ===== أزرار التصفية =====
+  // ===== أزرار التصفية + نسخ المعروض في نفس الصف =====
   const filterBar = document.createElement("div");
   filterBar.className = "filter-bar";
   filterBar.innerHTML = `
     <button class="filter-btn ${filterColor==='all'?'active':''}" data-filter="all">📋 الكل</button>
     <button class="filter-btn ${filterColor==='green'?'active':''}" data-filter="green">🟢 الأخضر</button>
     <button class="filter-btn ${filterColor==='red'?'active':''}" data-filter="red">🔴 الأحمر</button>
+    <button class="copy-filtered-btn" id="copyFilteredBtn">📋 نسخ المعروض</button>
   `;
   vehicleList.appendChild(filterBar);
+
   filterBar.querySelectorAll(".filter-btn").forEach(btn => {
     btn.addEventListener("click", ()=>{ renderVehicles(btn.dataset.filter); });
   });
@@ -207,24 +209,18 @@ function renderVehicles(filterColor = "all"){
     });
   });
 
-  // ===== زر نسخ المعروض =====
-  if(filtered.length > 0){
-    const copyFilteredBtn = document.createElement("button");
-    copyFilteredBtn.className = "copy-filtered-btn";
-    copyFilteredBtn.textContent = "📋 نسخ المعروض";
-    vehicleList.appendChild(copyFilteredBtn);
+  // ===== حدث زر نسخ المعروض =====
+  document.getElementById("copyFilteredBtn").addEventListener("click", ()=>{
+    const today = new Date();
+    const todayFormatted = `${today.getFullYear()}/${String(today.getMonth()+1).padStart(2,"0")}/${String(today.getDate()).padStart(2,"0")}`;
+    let text = `المتابعة اليومية للزيوت / تاريخ: ${todayFormatted}\n\n`;
 
-    copyFilteredBtn.addEventListener("click", ()=>{
-      const today = new Date();
-      const todayFormatted = `${today.getFullYear()}/${String(today.getMonth()+1).padStart(2,"0")}/${String(today.getDate()).padStart(2,"0")}`;
-      let text = `المتابعة اليومية للزيوت / تاريخ: ${todayFormatted}\n\n`;
-
-      sortedTypes.forEach(type => {
-        grouped[type].forEach(v => {
-          const dateParts = v.data.date.split("-");
-          const formattedDate = dateParts.length === 3 ? `${dateParts[0]}/${dateParts[1]}/${dateParts[2]}` : v.data.date;
-          const emoji = getStatusEmoji(type, v.data.kmSinceLastChange);
-          text += `نوع المعدة: ${type}
+    sortedTypes.forEach(type => {
+      grouped[type].forEach(v => {
+        const dateParts = v.data.date.split("-");
+        const formattedDate = dateParts.length === 3 ? `${dateParts[0]}/${dateParts[1]}/${dateParts[2]}` : v.data.date;
+        const emoji = getStatusEmoji(type, v.data.kmSinceLastChange);
+        text += `نوع المعدة: ${type}
 رقم المعدة: ${v.id} ${emoji}
 الممشى الحالي: ${v.data.currentKm}
 ممشى آخر تغيير زيت: ${v.data.lastKm}
@@ -232,13 +228,12 @@ function renderVehicles(filterColor = "all"){
 تاريخ آخر تغيير زيت: ${formattedDate}
 حالة فلتر الزيت: ${v.data.filter}
 ----------------------\n`;
-        });
       });
-
-      navigator.clipboard.writeText(text.trim());
-      alert("✅ تم النسخ");
     });
-  }
+
+    navigator.clipboard.writeText(text.trim());
+    alert("✅ تم النسخ");
+  });
 
   // ===== زر عرض =====
   document.querySelectorAll(".btn-view").forEach(btn => {
