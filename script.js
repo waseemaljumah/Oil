@@ -20,7 +20,6 @@ const deleteBtn = document.getElementById("deleteBtn");
 const copyBtn = document.getElementById("copyBtn");
 const copyGreenBtn = document.getElementById("copyGreenBtn");
 const copyRedBtn = document.getElementById("copyRedBtn");
-const copyBothBtn = document.getElementById("copyBothBtn");
 const vehicleList = document.getElementById("vehicleList");
 const outputDiv = document.getElementById("output");
 
@@ -330,20 +329,8 @@ function updateOutput(){
   outputDiv.innerText = text.trim();
 }
 
-// =================== دالة نسخ حسب اللون (من Firestore مباشرة) ===================
-async function copyByColor(filterFn) {
-  const querySnapshot = await getDocs(collection(db, "vehicles"));
-
-  const grouped = {};
-  querySnapshot.forEach(docItem => {
-    const data = docItem.data();
-    const type = data.type;
-    const emoji = getStatusEmoji(type, data.kmSinceLastChange);
-    if (!filterFn(emoji)) return;
-    if (!grouped[type]) grouped[type] = [];
-    grouped[type].push({ id: docItem.id, data });
-  });
-
+// =================== دالة نسخ حسب اللون (من الجلسة فقط) ===================
+function copyByColor(filterFn) {
   const today = new Date();
   const year = today.getFullYear();
   const month = String(today.getMonth() + 1).padStart(2, "0");
@@ -352,15 +339,21 @@ async function copyByColor(filterFn) {
 
   let text = `المتابعة اليومية للزيوت / تاريخ: ${todayFormatted}\n\n`;
 
-  const sortedTypes = Object.keys(grouped).sort();
+  const sortedTypes = Object.keys(sessionVehicles).sort();
   sortedTypes.forEach(type => {
-    grouped[type].sort((a, b) => (b.data.kmSinceLastChange || 0) - (a.data.kmSinceLastChange || 0));
-    grouped[type].forEach(v => {
+    const filtered = sessionVehicles[type].filter(v => {
+      const emoji = getStatusEmoji(type, v.data.kmSinceLastChange);
+      return filterFn(emoji);
+    });
+
+    filtered.sort((a, b) => (b.data.kmSinceLastChange || 0) - (a.data.kmSinceLastChange || 0));
+
+    filtered.forEach(v => {
       const dateParts = v.data.date.split("-");
       const formattedDate = dateParts.length === 3 ? `${dateParts[0]}/${dateParts[1]}/${dateParts[2]}` : v.data.date;
       const emoji = getStatusEmoji(type, v.data.kmSinceLastChange);
       text += `نوع المعدة: ${type}
-رقم المعدة: ${v.id} ${emoji}
+رقم المعدة: ${v.number} ${emoji}
 الممشى الحالي: ${v.data.currentKm}
 ممشى آخر تغيير زيت: ${v.data.lastKm}
 الممشى منذ آخر تغيير: ${v.data.kmSinceLastChange}
@@ -378,7 +371,6 @@ async function copyByColor(filterFn) {
 copyBtn.addEventListener("click", ()=>{ navigator.clipboard.writeText(outputDiv.innerText); alert("تم النسخ"); });
 copyGreenBtn.addEventListener("click", ()=>{ copyByColor(e => e === "🟢"); });
 copyRedBtn.addEventListener("click", ()=>{ copyByColor(e => e === "🔴"); });
-copyBothBtn.addEventListener("click", ()=>{ copyByColor(e => e === "🟢" || e === "🔴"); });
 
 // =================== تفريغ النموذج ===================
 function clearForm(){
