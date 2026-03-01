@@ -10,6 +10,9 @@
 </head>
 <body>
 
+<!-- زر الدارك مود -->
+<button id="darkToggle">🌙</button>
+
 <h2>نموذج إدخال بيانات المركبات</h2>
 
 <div class="card">
@@ -43,7 +46,6 @@
     <option value="">يوجد ممشى لآخر تغيير زيت</option>
     <option value="no">لا يوجد عداد في اخر تغيير زيت</option>
     <option value="no">أخرى</option>
-
   </select>
   <input id="lastKmOther" placeholder="اكتب الملاحظة" />
 
@@ -66,7 +68,6 @@
   <button id="deleteBtn">حذف</button>
 </div>
 
-
 <div class="card">
   <h3>المتابعة اليومية</h3>
   <div id="output"></div>
@@ -82,6 +83,24 @@
   <h3>تصدير البيانات</h3>
   <button id="exportBtn">تصدير إلى Excel</button>
 </div>
+
+<script>
+  const darkToggle = document.getElementById("darkToggle");
+  const body = document.body;
+
+  // تحميل الوضع المحفوظ
+  if (localStorage.getItem("darkMode") === "on") {
+    body.classList.add("dark");
+    darkToggle.textContent = "☀️";
+  }
+
+  darkToggle.addEventListener("click", () => {
+    body.classList.toggle("dark");
+    const isDark = body.classList.contains("dark");
+    darkToggle.textContent = isDark ? "☀️" : "🌙";
+    localStorage.setItem("darkMode", isDark ? "on" : "off");
+  });
+</script>
 
 </body>
 </html>
