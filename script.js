@@ -39,6 +39,25 @@ lastKmSelect.addEventListener("change", ()=>{
 
 let sessionVehicles = {};
 
+// =================== علامة الحالة ===================
+function getStatusEmoji(type, kmSinceLastChange) {
+  const km = Number(kmSinceLastChange) || 0;
+
+  const volvoTypes = ["لوبد فولفو", "قلاب فولفو", "وايت فولفو"];
+  const heavyTypes = ["شيول", "بوكلين", "بلدوزر", "بوبكات"];
+
+  if (volvoTypes.includes(type)) {
+    return km >= 5500 ? "🔴" : "🟢";
+  } else if (type === "قلاب مرسيدس") {
+    return km >= 9500 ? "🔴" : "🟢";
+  } else if (heavyTypes.includes(type)) {
+    if (km >= 290) return "🔴";
+    if (km >= 250) return "🟠";
+    return "🟢";
+  }
+  return "";
+}
+
 // =================== حفظ / تحديث ===================
 saveBtn.addEventListener("click", async ()=>{
   const number = document.getElementById("number").value.trim();
@@ -83,7 +102,8 @@ searchBtn.addEventListener("click", async ()=>{
   if(docSnap.exists()){
     const data = docSnap.data();
     document.getElementById("number").value = number;
-typeSelect.value = ["قلاب فولفو","لوبد فولفو","وايت فولفو","قلاب مرسيدس","وايت","شيول","بوكلين","بلدوزر","بوبكات"].includes(data.type)? data.type:"اخرى";    typeOther.value = typeSelect.value==="اخرى"? data.type:"";
+    typeSelect.value = ["قلاب فولفو","لوبد فولفو","وايت فولفو","قلاب مرسيدس","وايت","شيول","بوكلين","بلدوزر","بوبكات"].includes(data.type)? data.type:"اخرى";
+    typeOther.value = typeSelect.value==="اخرى"? data.type:"";
     filterSelect.value = ["تم تغييره في آخر تغيير","تم تغييره في التغيير قبل الأخير","لم يتم تغييره في آخر تغييرين"].includes(data.filter)? data.filter:"اخرى";
     filterOther.value = filterSelect.value==="اخرى"? data.filter:"";
     document.getElementById("date").value = data.date;
@@ -134,11 +154,12 @@ async function loadVehicles(){
     vehicleList.appendChild(groupHeader);
 
     grouped[type].forEach(v => {
+      const emoji = getStatusEmoji(v.data.type, v.data.kmSinceLastChange);
       const div = document.createElement("div");
       div.className = "vehicle-item";
       div.innerHTML = `
         <div class="item-row">
-          <span><strong>رقم المعدة:</strong> ${v.id} &nbsp;|&nbsp; <strong>الممشى منذ آخر تغيير:</strong> ${v.data.kmSinceLastChange || 0}</span>
+          <span><strong>رقم المعدة:</strong> ${v.id} ${emoji} &nbsp;|&nbsp; <strong>الممشى منذ آخر تغيير:</strong> ${v.data.kmSinceLastChange || 0}</span>
           <div class="item-btns">
             <button class="btn-view" data-id="${v.id}">👁 عرض</button>
             <button class="btn-delete" data-id="${v.id}">🗑 حذف</button>
@@ -195,7 +216,7 @@ async function loadVehicles(){
       if(docSnap.exists()){
         const data = docSnap.data();
         document.getElementById("number").value = id;
-        typeSelect.value = ["قلاب فولفو","قلاب مرسيدس","شيول","بلدوزر","بوبكات"].includes(data.type)? data.type:"اخرى";
+        typeSelect.value = ["قلاب فولفو","لوبد فولفو","وايت فولفو","قلاب مرسيدس","وايت","شيول","بوكلين","بلدوزر","بوبكات"].includes(data.type)? data.type:"اخرى";
         typeOther.value = typeSelect.value==="اخرى"? data.type:"";
         typeOther.style.display = typeSelect.value==="اخرى"?"block":"none";
         filterSelect.value = ["تم تغييره في آخر تغيير","تم تغييره في التغيير قبل الأخير","لم يتم تغييره في آخر تغييرين"].includes(data.filter)? data.filter:"اخرى";
@@ -220,29 +241,26 @@ async function loadVehicles(){
 function updateOutput(){
   let text = "";
 
-  // الحصول على تاريخ اليوم بصيغة yyyy/mm/dd
   const today = new Date();
   const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, "0"); // +1 لأن الأشهر تبدأ من 0
+  const month = String(today.getMonth() + 1).padStart(2, "0");
   const day = String(today.getDate()).padStart(2, "0");
   const todayFormatted = `${year}/${month}/${day}`;
 
-  // إضافة سطر العنوان في البداية
   text += `المتابعة اليومية للزيوت / تاريخ: ${todayFormatted}\n\n`;
 
-  // ترتيب الأنواع أبجدياً
   const sortedTypes = Object.keys(sessionVehicles).sort();
   sortedTypes.forEach(type => {
-    // ترتيب المعدات حسب الممشى من الأعلى للأقل
-    sessionVehicles[type].sort((a,b) => b.km - a.km);
+    sessionVehicles[type].sort((a,b) => (b.data.kmSinceLastChange || 0) - (a.data.kmSinceLastChange || 0));
     sessionVehicles[type].forEach(v => {
-      const dateParts = v.data.date.split("-"); 
+      const dateParts = v.data.date.split("-");
       const formattedDate = dateParts.length === 3 ? `${dateParts[0]}/${dateParts[1]}/${dateParts[2]}` : v.data.date;
+      const emoji = getStatusEmoji(type, v.data.kmSinceLastChange);
       text += `نوع المعدة: ${type}
-رقم المعدة: ${v.number}
+رقم المعدة: ${v.number} ${emoji}
 الممشى الحالي: ${v.data.currentKm}
 ممشى آخر تغيير زيت: ${v.data.lastKm}
-الممشى منذ آخر تغيير: ${v.data.currentKm - v.data.lastKm}
+الممشى منذ آخر تغيير: ${v.data.kmSinceLastChange}
 تاريخ آخر تغيير زيت: ${formattedDate}
 حالة فلتر الزيت: ${v.data.filter}
 ----------------------\n`;
@@ -272,7 +290,6 @@ function clearForm(){
 const exportBtn = document.getElementById("exportBtn");
 
 exportBtn.addEventListener("click", async () => {
-  //  جلب كل المركبات من Firestore
   const querySnapshot = await getDocs(collection(db, "vehicles"));
   let dataArray = [];
 
@@ -281,7 +298,6 @@ exportBtn.addEventListener("click", async () => {
     const currentKm = Number(d.currentKm) || 0;
     const lastKm = Number(d.lastKm) || 0;
     const kmDiff = currentKm - lastKm;
-
 
     const dateParts = d.date.split("-");
     const formattedDate = dateParts.length === 3 ? `${dateParts[0]}/${dateParts[1]}/${dateParts[2]}` : d.date;
@@ -297,16 +313,13 @@ exportBtn.addEventListener("click", async () => {
     });
   });
 
-
   dataArray.sort((a, b) => {
     if (a["نوع المعدة"] < b["نوع المعدة"]) return -1;
     if (a["نوع المعدة"] > b["نوع المعدة"]) return 1;
     return b["الممشى الحالي"] - a["الممشى الحالي"];
   });
 
-
   const worksheet = XLSX.utils.json_to_sheet(dataArray, { origin: 1 });
-
 
   const today = new Date();
   const yyyy = today.getFullYear();
@@ -316,7 +329,6 @@ exportBtn.addEventListener("click", async () => {
 
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, "المركبات");
-
 
   XLSX.writeFile(workbook, "متابعة_المركبات.xlsx");
 });
