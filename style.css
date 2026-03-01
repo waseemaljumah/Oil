@@ -176,3 +176,36 @@ body.dark #darkToggle {
 body.dark #darkToggle:hover {
   background: #cbd5e0;
 }
+
+.filter-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.filter-btn {
+  padding: 6px 14px;
+  border: 2px solid #ccc;
+  border-radius: 8px;
+  cursor: pointer;
+  background: white;
+  font-size: 13px;
+}
+
+.filter-btn.active {
+  border-color: #4a90d9;
+  background: #e8f1fb;
+  font-weight: bold;
+}
+
+.copy-filtered-btn {
+  margin-top: 14px;
+  width: 100%;
+  padding: 8px;
+  background: #4a90d9;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+}

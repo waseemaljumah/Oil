@@ -18,6 +18,9 @@ const saveBtn = document.getElementById("saveBtn");
 const searchBtn = document.getElementById("searchBtn");
 const deleteBtn = document.getElementById("deleteBtn");
 const copyBtn = document.getElementById("copyBtn");
+const copyGreenBtn = document.getElementById("copyGreenBtn");
+const copyRedBtn = document.getElementById("copyRedBtn");
+const copyBothBtn = document.getElementById("copyBothBtn");
 const vehicleList = document.getElementById("vehicleList");
 const outputDiv = document.getElementById("output");
 
@@ -38,11 +41,11 @@ lastKmSelect.addEventListener("change", ()=>{
 });
 
 let sessionVehicles = {};
+let allVehiclesData = [];
 
 // =================== علامة الحالة ===================
 function getStatusEmoji(type, kmSinceLastChange) {
   const km = Number(kmSinceLastChange) || 0;
-
   const volvoTypes = ["لوبد فولفو", "قلاب فولفو", "وايت فولفو"];
   const heavyTypes = ["قريدر","شيول", "بوكلين", "بلدوزر", "بوبكات"];
 
@@ -51,8 +54,7 @@ function getStatusEmoji(type, kmSinceLastChange) {
   } else if (type === "قلاب مرسيدس") {
     return km >= 9500 ? "🔴" : "🟢";
   } else if (heavyTypes.includes(type)) {
-    if (km >= 250) return "🔴";
-    return "🟢";
+    return km >= 250 ? "🔴" : "🟢";
   }
   return "";
 }
@@ -128,18 +130,46 @@ deleteBtn.addEventListener("click", async ()=>{
   alert("🗑 تم الحذف");
 });
 
-
 // =================== عرض كل المركبات ===================
 async function loadVehicles(){
-  vehicleList.innerHTML="";
   const querySnapshot = await getDocs(collection(db,"vehicles"));
-
-  const grouped = {};
+  allVehiclesData = [];
   querySnapshot.forEach(docItem=>{
-    const data = docItem.data();
-    const type = data.type;
+    allVehiclesData.push({ id: docItem.id, data: docItem.data() });
+  });
+  renderVehicles("all");
+}
+
+function renderVehicles(filterColor = "all"){
+  vehicleList.innerHTML = "";
+
+  // ===== أزرار التصفية =====
+  const filterBar = document.createElement("div");
+  filterBar.className = "filter-bar";
+  filterBar.innerHTML = `
+    <button class="filter-btn ${filterColor==='all'?'active':''}" data-filter="all">📋 الكل</button>
+    <button class="filter-btn ${filterColor==='green'?'active':''}" data-filter="green">🟢 الأخضر</button>
+    <button class="filter-btn ${filterColor==='red'?'active':''}" data-filter="red">🔴 الأحمر</button>
+  `;
+  vehicleList.appendChild(filterBar);
+  filterBar.querySelectorAll(".filter-btn").forEach(btn => {
+    btn.addEventListener("click", ()=>{ renderVehicles(btn.dataset.filter); });
+  });
+
+  // ===== تصفية البيانات =====
+  const filtered = allVehiclesData.filter(v => {
+    const emoji = getStatusEmoji(v.data.type, v.data.kmSinceLastChange);
+    if(filterColor === "green") return emoji === "🟢";
+    if(filterColor === "red")   return emoji === "🔴";
+    return true;
+  });
+
+  // ===== تجميع حسب النوع =====
+  const grouped = {};
+  filtered.forEach(v => {
+    const type = v.data.type;
     if(!grouped[type]) grouped[type] = [];
-    grouped[type].push({ id: docItem.id, data });
+    grouped[type].push(v);
   });
 
   const sortedTypes = Object.keys(grouped).sort();
@@ -164,7 +194,6 @@ async function loadVehicles(){
             <button class="btn-delete" data-id="${v.id}">🗑 حذف</button>
           </div>
         </div>
-
         <div class="vehicle-details" id="details-${v.id}" style="display:none;">
           <p><strong>نوع المعدة:</strong> ${v.data.type}</p>
           <p><strong>الممشى الحالي:</strong> ${v.data.currentKm}</p>
@@ -178,6 +207,39 @@ async function loadVehicles(){
       vehicleList.appendChild(div);
     });
   });
+
+  // ===== زر نسخ المعروض =====
+  if(filtered.length > 0){
+    const copyFilteredBtn = document.createElement("button");
+    copyFilteredBtn.className = "copy-filtered-btn";
+    copyFilteredBtn.textContent = "📋 نسخ المعروض";
+    vehicleList.appendChild(copyFilteredBtn);
+
+    copyFilteredBtn.addEventListener("click", ()=>{
+      const today = new Date();
+      const todayFormatted = `${today.getFullYear()}/${String(today.getMonth()+1).padStart(2,"0")}/${String(today.getDate()).padStart(2,"0")}`;
+      let text = `المتابعة اليومية للزيوت / تاريخ: ${todayFormatted}\n\n`;
+
+      sortedTypes.forEach(type => {
+        grouped[type].forEach(v => {
+          const dateParts = v.data.date.split("-");
+          const formattedDate = dateParts.length === 3 ? `${dateParts[0]}/${dateParts[1]}/${dateParts[2]}` : v.data.date;
+          const emoji = getStatusEmoji(type, v.data.kmSinceLastChange);
+          text += `نوع المعدة: ${type}
+رقم المعدة: ${v.id} ${emoji}
+الممشى الحالي: ${v.data.currentKm}
+ممشى آخر تغيير زيت: ${v.data.lastKm}
+الممشى منذ آخر تغيير: ${v.data.kmSinceLastChange}
+تاريخ آخر تغيير زيت: ${formattedDate}
+حالة فلتر الزيت: ${v.data.filter}
+----------------------\n`;
+        });
+      });
+
+      navigator.clipboard.writeText(text.trim());
+      alert("✅ تم النسخ");
+    });
+  }
 
   // ===== زر عرض =====
   document.querySelectorAll(".btn-view").forEach(btn => {
@@ -235,7 +297,6 @@ async function loadVehicles(){
   });
 }
 
-
 // =================== تحديث النص النهائي ===================
 function updateOutput(){
   let text = "";
@@ -269,8 +330,55 @@ function updateOutput(){
   outputDiv.innerText = text.trim();
 }
 
+// =================== دالة نسخ حسب اللون (من Firestore مباشرة) ===================
+async function copyByColor(filterFn) {
+  const querySnapshot = await getDocs(collection(db, "vehicles"));
+
+  const grouped = {};
+  querySnapshot.forEach(docItem => {
+    const data = docItem.data();
+    const type = data.type;
+    const emoji = getStatusEmoji(type, data.kmSinceLastChange);
+    if (!filterFn(emoji)) return;
+    if (!grouped[type]) grouped[type] = [];
+    grouped[type].push({ id: docItem.id, data });
+  });
+
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+  const todayFormatted = `${year}/${month}/${day}`;
+
+  let text = `المتابعة اليومية للزيوت / تاريخ: ${todayFormatted}\n\n`;
+
+  const sortedTypes = Object.keys(grouped).sort();
+  sortedTypes.forEach(type => {
+    grouped[type].sort((a, b) => (b.data.kmSinceLastChange || 0) - (a.data.kmSinceLastChange || 0));
+    grouped[type].forEach(v => {
+      const dateParts = v.data.date.split("-");
+      const formattedDate = dateParts.length === 3 ? `${dateParts[0]}/${dateParts[1]}/${dateParts[2]}` : v.data.date;
+      const emoji = getStatusEmoji(type, v.data.kmSinceLastChange);
+      text += `نوع المعدة: ${type}
+رقم المعدة: ${v.id} ${emoji}
+الممشى الحالي: ${v.data.currentKm}
+ممشى آخر تغيير زيت: ${v.data.lastKm}
+الممشى منذ آخر تغيير: ${v.data.kmSinceLastChange}
+تاريخ آخر تغيير زيت: ${formattedDate}
+حالة فلتر الزيت: ${v.data.filter}
+----------------------\n`;
+    });
+  });
+
+  navigator.clipboard.writeText(text.trim());
+  alert("تم النسخ");
+}
+
 // =================== نسخ النص ===================
 copyBtn.addEventListener("click", ()=>{ navigator.clipboard.writeText(outputDiv.innerText); alert("تم النسخ"); });
+copyGreenBtn.addEventListener("click", ()=>{ copyByColor(e => e === "🟢"); });
+copyRedBtn.addEventListener("click", ()=>{ copyByColor(e => e === "🔴"); });
+copyBothBtn.addEventListener("click", ()=>{ copyByColor(e => e === "🟢" || e === "🔴"); });
 
 // =================== تفريغ النموذج ===================
 function clearForm(){
