@@ -90,7 +90,7 @@ saveBtn.addEventListener("click", async ()=>{
   updateOutput();
   clearForm();
   loadVehicles();
-  alert("✅ تم الحفظ أو التحديث");
+  alert("✅ تم الحفظ أو التحديث والإضافة للمتابعة اليومية");
 });
 
 // =================== البحث ===================
