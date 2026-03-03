@@ -1,7 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
 import {
   getFirestore, doc, setDoc, getDoc, deleteDoc,
-  collection, getDocs, addDoc, query, orderBy, deleteField, updateDoc
+  collection, getDocs, addDoc, query, orderBy, updateDoc
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -18,6 +18,9 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 const WARN_KM = 500;
+
+// متغير لتتبع السجل الذي يتم تعديله
+let editingRecord = null; // { plate, rid }
 
 // =================== مساعدات ===================
 function formatDate(dateStr) {
@@ -55,8 +58,8 @@ function buildProgressBar(status) {
 function buildAlert(status) {
   if (!status) return "";
   const { remaining } = status;
-  if (remaining <= 0)         return `<div class="alert-danger">🔴 تجاوزت موعد تغيير الزيت! يجب التغيير فوراً.</div>`;
-  if (remaining <= WARN_KM)   return `<div class="alert-warning">🟡 اقترب موعد تغيير الزيت! المتبقي ${remaining} كم فقط.</div>`;
+  if (remaining <= 0)       return `<div class="alert-danger">🔴 تجاوزت موعد تغيير الزيت! يجب التغيير فوراً.</div>`;
+  if (remaining <= WARN_KM) return `<div class="alert-warning">🟡 اقترب موعد تغيير الزيت! المتبقي ${remaining} كم فقط.</div>`;
   return "";
 }
 
@@ -87,25 +90,44 @@ document.getElementById("saveCarBtn").addEventListener("click", async () => {
   loadCars();
 });
 
-// =================== إضافة سجل تغيير ===================
-document.getElementById("saveRecordBtn").addEventListener("click", async () => {
-  const plate       = document.getElementById("recordPlate").value.trim();
-  const date        = document.getElementById("recordDate").value;
-  const km          = document.getElementById("recordKm").value.trim();
-  const oilFilter   = document.getElementById("oilFilterSelect").value;
-  const dieselFilter= document.getElementById("dieselFilterSelect").value;
-  const notes       = document.getElementById("recordNotes").value.trim();
+// =================== إضافة / تعديل سجل ===================
+const saveRecordBtn = document.getElementById("saveRecordBtn");
+
+saveRecordBtn.addEventListener("click", async () => {
+  const plate        = document.getElementById("recordPlate").value.trim();
+  const date         = document.getElementById("recordDate").value;
+  const km           = document.getElementById("recordKm").value.trim();
+  const oilFilter    = document.getElementById("oilFilterSelect").value;
+  const dieselFilter = document.getElementById("dieselFilterSelect").value;
+  const notes        = document.getElementById("recordNotes").value.trim();
 
   if (!plate) { alert("ادخل رقم اللوحة"); return; }
   if (!date)  { alert("ادخل تاريخ التغيير"); return; }
   if (!km)    { alert("ادخل العداد عند التغيير"); return; }
 
-  const carRef = doc(db, "cars", plate);
-  const carSnap = await getDoc(carRef);
+  // ===== وضع التعديل =====
+  if (editingRecord) {
+    const { plate: ePlate, rid } = editingRecord;
+    await updateDoc(doc(db, "cars", ePlate, "records", rid), {
+      date,
+      km: Number(km),
+      oilFilter,
+      dieselFilter,
+      notes
+    });
+    alert("✅ تم تعديل السجل");
+    editingRecord = null;
+    saveRecordBtn.textContent = "➕ إضافة سجل";
+    clearRecordForm();
+    loadCars();
+    return;
+  }
+
+  // ===== وضع الإضافة =====
+  const carSnap = await getDoc(doc(db, "cars", plate));
   if (!carSnap.exists()) { alert("❌ السيارة غير موجودة، أضفها أولاً"); return; }
 
-  const recordsRef = collection(db, "cars", plate, "records");
-  await addDoc(recordsRef, {
+  await addDoc(collection(db, "cars", plate, "records"), {
     date,
     km: Number(km),
     oilFilter,
@@ -136,13 +158,12 @@ document.getElementById("searchCarBtn").addEventListener("click", async () => {
   window.scrollTo({ top: 0, behavior: "smooth" });
 });
 
-// =================== حذف ===================
+// =================== حذف سيارة ===================
 document.getElementById("deleteCarBtn").addEventListener("click", async () => {
   const plate = document.getElementById("searchPlate").value.trim();
   if (!plate) { alert("ادخل رقم اللوحة للحذف"); return; }
   if (!confirm(`هل تريد حذف السيارة ${plate} وكل سجلاتها؟`)) return;
 
-  // حذف السجلات أولاً
   const recordsSnap = await getDocs(collection(db, "cars", plate, "records"));
   for (const r of recordsSnap.docs) {
     await deleteDoc(doc(db, "cars", plate, "records", r.id));
@@ -169,24 +190,20 @@ async function loadCars() {
     const plate = carDoc.id;
     const car   = carDoc.data();
 
-    // جلب السجلات مرتبة
     const recordsSnap = await getDocs(
       query(collection(db, "cars", plate, "records"), orderBy("km", "desc"))
     );
     const records = recordsSnap.docs.map(r => ({ id: r.id, ...r.data() }));
     const lastRecord = records.length > 0 ? records[0] : null;
-
     const status = getRemaining(car, lastRecord);
 
-    // تحديد الإيموجي
     let emoji = "";
     if (status) {
-      if (status.remaining <= 0)         emoji = "🔴";
+      if (status.remaining <= 0)            emoji = "🔴";
       else if (status.remaining <= WARN_KM) emoji = "🟡";
-      else                                emoji = "🟢";
+      else                                  emoji = "🟢";
     }
 
-    // بناء جدول السجلات
     let recordsHTML = "";
     if (records.length > 0) {
       recordsHTML = `
@@ -198,6 +215,7 @@ async function loadCars() {
               <th>فلتر الزيت</th>
               <th>فلتر الديزل</th>
               <th>ملاحظات</th>
+              <th>تعديل</th>
               <th>حذف</th>
             </tr>
           </thead>
@@ -209,7 +227,19 @@ async function loadCars() {
                 <td>${r.oilFilter || "-"}</td>
                 <td>${r.dieselFilter || "-"}</td>
                 <td>${r.notes || "-"}</td>
-                <td><button class="btn-del-record" data-plate="${plate}" data-rid="${r.id}">🗑</button></td>
+                <td>
+                  <button class="btn-edit-record"
+                    data-plate="${plate}"
+                    data-rid="${r.id}"
+                    data-date="${r.date}"
+                    data-km="${r.km}"
+                    data-oilfilter="${r.oilFilter}"
+                    data-dieselfilter="${r.dieselFilter}"
+                    data-notes="${(r.notes || "").replace(/"/g, "&quot;")}">✏️</button>
+                </td>
+                <td>
+                  <button class="btn-del-record" data-plate="${plate}" data-rid="${r.id}">🗑</button>
+                </td>
               </tr>
             `).join("")}
           </tbody>
@@ -231,7 +261,6 @@ async function loadCars() {
           <button class="btn-edit-car btn-view" data-plate="${plate}" style="background:#f0a500">✏️ تعديل</button>
         </div>
       </div>
-
       <div class="car-details" id="details-${plate}" style="display:none;">
         ${buildAlert(status)}
         <p><strong>رقم اللوحة:</strong> ${plate}</p>
@@ -268,7 +297,7 @@ async function loadCars() {
     });
   });
 
-  // زر تعديل
+  // زر تعديل السيارة
   document.querySelectorAll(".btn-edit-car").forEach(btn => {
     btn.addEventListener("click", async () => {
       const plate = btn.dataset.plate;
@@ -282,6 +311,31 @@ async function loadCars() {
         window.scrollTo({ top: 0, behavior: "smooth" });
         alert("✏️ عدّل البيانات ثم اضغط حفظ/تحديث");
       }
+    });
+  });
+
+  // زر تعديل سجل
+  document.querySelectorAll(".btn-edit-record").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const plate        = btn.dataset.plate;
+      const rid          = btn.dataset.rid;
+      const date         = btn.dataset.date;
+      const km           = btn.dataset.km;
+      const oilFilter    = btn.dataset.oilfilter;
+      const dieselFilter = btn.dataset.dieselfilter;
+      const notes        = btn.dataset.notes;
+
+      document.getElementById("recordPlate").value        = plate;
+      document.getElementById("recordDate").value         = date;
+      document.getElementById("recordKm").value           = km;
+      document.getElementById("oilFilterSelect").value    = oilFilter;
+      document.getElementById("dieselFilterSelect").value = dieselFilter;
+      document.getElementById("recordNotes").value        = notes;
+
+      editingRecord = { plate, rid };
+      saveRecordBtn.textContent = "💾 حفظ التعديل";
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      alert("✏️ عدّل البيانات ثم اضغط حفظ التعديل");
     });
   });
 
@@ -307,10 +361,10 @@ function clearCarForm() {
 }
 
 function clearRecordForm() {
-  document.getElementById("recordPlate").value = "";
-  document.getElementById("recordDate").value  = "";
-  document.getElementById("recordKm").value    = "";
-  document.getElementById("recordNotes").value = "";
+  document.getElementById("recordPlate").value        = "";
+  document.getElementById("recordDate").value         = "";
+  document.getElementById("recordKm").value           = "";
+  document.getElementById("recordNotes").value        = "";
   document.getElementById("oilFilterSelect").value    = "تم تغييره";
   document.getElementById("dieselFilterSelect").value = "تم تغييره";
 }
