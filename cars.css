@@ -118,8 +118,7 @@
 .record-table tr:last-child td { border-bottom: none; }
 .record-table tr:nth-child(even) td { background: #f5f8ff; }
 
-.btn-del-record {
-  background: #e05555;
+.btn-del-record, .btn-edit-record {
   color: white;
   border: none;
   border-radius: 4px;
@@ -129,7 +128,12 @@
   width: auto;
   margin: 0;
 }
-.btn-del-record:hover { background: #c03030; }
+
+.btn-del-record  { background: #e05555; }
+.btn-edit-record { background: #f0a500; }
+.btn-del-record:hover  { background: #c03030; }
+.btn-edit-record:hover { background: #c98600; }
+
 
 /* =================== دارك مود =================== */
 body.dark .page-link { background: #63b3ed; color: #1a202c; }
