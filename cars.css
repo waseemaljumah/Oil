@@ -1,0 +1,144 @@
+/* =================== رابط الصفحة =================== */
+.page-link {
+  display: inline-block;
+  padding: 8px 20px;
+  background: #4a90e2;
+  color: white;
+  border-radius: 20px;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: bold;
+  transition: background 0.3s;
+}
+.page-link:hover { background: #357ab8; }
+
+/* =================== زر خطر =================== */
+.btn-danger {
+  background: #e05555 !important;
+}
+.btn-danger:hover {
+  background: #c03030 !important;
+}
+
+/* =================== بطاقة السيارة =================== */
+.car-item {
+  padding: 8px 10px;
+  border-bottom: 1px solid #ddd;
+  font-size: 14px;
+}
+
+.car-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.car-btns {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* =================== شريط التقدم =================== */
+.progress-bar-container {
+  margin: 8px 0 4px 0;
+  background: #e0e0e0;
+  border-radius: 10px;
+  height: 13px;
+  overflow: hidden;
+}
+.progress-bar {
+  height: 100%;
+  border-radius: 10px;
+  transition: width 0.4s;
+}
+.progress-green  { background: #48bb78; }
+.progress-orange { background: #f6ad55; }
+.progress-red    { background: #fc8181; }
+
+.progress-label {
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 6px;
+}
+
+/* =================== تنبيهات =================== */
+.alert-warning {
+  background: #fff3cd;
+  border: 1px solid #f6c23e;
+  color: #856404;
+  padding: 8px 12px;
+  border-radius: 8px;
+  margin: 8px 0;
+  font-size: 13px;
+  font-weight: bold;
+}
+.alert-danger {
+  background: #fde8e8;
+  border: 1px solid #fc8181;
+  color: #c53030;
+  padding: 8px 12px;
+  border-radius: 8px;
+  margin: 8px 0;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+/* =================== تفاصيل السيارة =================== */
+.car-details {
+  margin-top: 10px;
+  padding: 10px;
+  background: #f9f9f9;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  font-size: 14px;
+  line-height: 1.8;
+  transition: background 0.3s, border-color 0.3s;
+}
+
+/* =================== جدول السجلات =================== */
+.record-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+  font-size: 13px;
+}
+.record-table th {
+  background: #4a90e2;
+  color: white;
+  padding: 7px 8px;
+  text-align: right;
+}
+.record-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid #eee;
+}
+.record-table tr:last-child td { border-bottom: none; }
+.record-table tr:nth-child(even) td { background: #f5f8ff; }
+
+.btn-del-record {
+  background: #e05555;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 3px 8px;
+  cursor: pointer;
+  font-size: 12px;
+  width: auto;
+  margin: 0;
+}
+.btn-del-record:hover { background: #c03030; }
+
+/* =================== دارك مود =================== */
+body.dark .page-link { background: #63b3ed; color: #1a202c; }
+body.dark .car-item { border-bottom: 1px solid #4a5568; }
+body.dark .progress-bar-container { background: #4a5568; }
+body.dark .progress-label { color: #a0aec0; }
+body.dark .alert-warning { background: #3d3200; border-color: #f6c23e; color: #f6c23e; }
+body.dark .alert-danger { background: #3d0000; border-color: #fc8181; color: #fc8181; }
+body.dark .car-details { background: #3a4a5c; border-color: #4a5568; color: #e2e8f0; }
+body.dark .record-table th { background: #2b6cb0; }
+body.dark .record-table td { border-bottom: 1px solid #4a5568; color: #e2e8f0; }
+body.dark .record-table tr:nth-child(even) td { background: #3a4a5c; }
