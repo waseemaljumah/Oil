@@ -31,6 +31,8 @@ const lastKmSelect = document.getElementById("lastKmSelect");
 const lastKmOther = document.getElementById("lastKmOther");
 const lastKmInput = document.getElementById("lastKmInput");
 
+const NO_KM_TEXT = "لا يوجد عداد في آخر تغيير زيت في النظام";
+
 typeSelect.addEventListener("change", () => {
   typeOther.style.display = typeSelect.value === "اخرى" ? "block" : "none";
 });
@@ -39,7 +41,6 @@ filterSelect.addEventListener("change", () => {
   filterOther.style.display = filterSelect.value === "اخرى" ? "block" : "none";
 });
 
-// ===== التعديل 1: إخفاء حقل الكتابة وتعيين القيمة تلقائياً =====
 lastKmSelect.addEventListener("change", () => {
   if (lastKmSelect.value === "no") {
     lastKmOther.style.display = "none";
@@ -53,9 +54,12 @@ lastKmSelect.addEventListener("change", () => {
 let sessionVehicles = {};
 let allVehiclesData = [];
 
-// ===== التعديل 2: لا لون إذا لا يوجد عداد =====
+function isNoKm(lastKm) {
+  return !lastKm || lastKm === NO_KM_TEXT || isNaN(Number(lastKm));
+}
+
 function getStatusEmoji(type, kmSinceLastChange, lastKm) {
-  if (!lastKm || lastKm === "لا يوجد عداد" || isNaN(Number(lastKm))) return "";
+  if (isNoKm(lastKm)) return "⚫";
 
   const km = Number(kmSinceLastChange) || 0;
   const volvoTypes = ["لوبد فولفو", "قلاب فولفو", "وايت فولفو", "فولفو"];
@@ -78,16 +82,11 @@ saveBtn.addEventListener("click", async () => {
 
   const typeVal = typeSelect.value === "اخرى" ? typeOther.value : typeSelect.value;
   const filterVal = filterSelect.value === "اخرى" ? filterOther.value : filterSelect.value;
-
-  // ===== التعديل 3: تعيين "لا يوجد عداد" تلقائياً =====
-  const lastKmVal = lastKmSelect.value === "no" ? "لا يوجد عداد" : (lastKmInput.value || 0);
-
+  const lastKmVal = lastKmSelect.value === "no" ? NO_KM_TEXT : (lastKmInput.value || 0);
   const currentKmVal = Number(document.getElementById("currentKm").value);
   const dateVal = document.getElementById("date").value;
 
-  const kmDiff = (lastKmVal && lastKmVal !== "لا يوجد عداد" && !isNaN(lastKmVal))
-    ? currentKmVal - Number(lastKmVal)
-    : 0;
+  const kmDiff = !isNoKm(lastKmVal) ? currentKmVal - Number(lastKmVal) : 0;
 
   const data = {
     type: typeVal,
@@ -127,7 +126,7 @@ searchBtn.addEventListener("click", async () => {
     document.getElementById("date").value = data.date;
     document.getElementById("currentKm").value = data.currentKm;
 
-    if (data.lastKm === "لا يوجد عداد" || isNaN(Number(data.lastKm))) {
+    if (isNoKm(data.lastKm)) {
       lastKmSelect.value = "no";
       lastKmOther.style.display = "none";
       lastKmInput.style.display = "none";
@@ -210,7 +209,7 @@ function renderVehicles(filterColor = "all") {
       div.className = "vehicle-item";
       div.innerHTML = `
         <div class="item-row">
-          <span><strong>رقم المعدة:</strong> ${v.id} ${emoji} &nbsp;|&nbsp; <strong>الممشى منذ آخر تغيير:</strong> ${v.data.kmSinceLastChange || 0}</span>
+          <span><strong>رقم المعدة:</strong> ${v.id} ${emoji} &nbsp;|&nbsp; <strong>الممشى منذ آخر تغيير:</strong> ${isNoKm(v.data.lastKm) ? "-" : (v.data.kmSinceLastChange || 0)}</span>
           <div class="item-btns">
             <button class="btn-view" data-id="${v.id}">👁 عرض</button>
             <button class="btn-delete" data-id="${v.id}">🗑 حذف</button>
@@ -220,7 +219,7 @@ function renderVehicles(filterColor = "all") {
           <p><strong>نوع المعدة:</strong> ${v.data.type}</p>
           <p><strong>الممشى الحالي:</strong> ${v.data.currentKm}</p>
           <p><strong>ممشى آخر تغيير زيت:</strong> ${v.data.lastKm}</p>
-          <p><strong>الممشى منذ آخر تغيير:</strong> ${v.data.kmSinceLastChange || 0}</p>
+          <p><strong>الممشى منذ آخر تغيير:</strong> ${isNoKm(v.data.lastKm) ? "-" : (v.data.kmSinceLastChange || 0)}</p>
           <p><strong>تاريخ آخر تغيير زيت:</strong> ${v.data.date}</p>
           <p><strong>حالة فلتر الزيت:</strong> ${v.data.filter}</p>
           <button class="btn-edit" data-id="${v.id}">✏️ تعديل</button>
@@ -244,7 +243,7 @@ function renderVehicles(filterColor = "all") {
 رقم المعدة: ${v.id} ${emoji}
 الممشى الحالي: ${v.data.currentKm}
 ممشى آخر تغيير زيت: ${v.data.lastKm}
-الممشى منذ آخر تغيير: ${v.data.kmSinceLastChange}
+الممشى منذ آخر تغيير: ${isNoKm(v.data.lastKm) ? "-" : v.data.kmSinceLastChange}
 تاريخ آخر تغيير زيت: ${formattedDate}
 حالة فلتر الزيت: ${v.data.filter}
 ----------------------\n`;
@@ -297,7 +296,7 @@ function renderVehicles(filterColor = "all") {
         document.getElementById("date").value = data.date;
         document.getElementById("currentKm").value = data.currentKm;
 
-        if (data.lastKm === "لا يوجد عداد" || isNaN(Number(data.lastKm))) {
+        if (isNoKm(data.lastKm)) {
           lastKmSelect.value = "no";
           lastKmOther.style.display = "none";
           lastKmInput.style.display = "none";
@@ -332,7 +331,7 @@ function updateOutput() {
 رقم المعدة: ${v.number} ${emoji}
 الممشى الحالي: ${v.data.currentKm}
 ممشى آخر تغيير زيت: ${v.data.lastKm}
-الممشى منذ آخر تغيير: ${v.data.kmSinceLastChange}
+الممشى منذ آخر تغيير: ${isNoKm(v.data.lastKm) ? "-" : v.data.kmSinceLastChange}
 تاريخ آخر تغيير زيت: ${formattedDate}
 حالة فلتر الزيت: ${v.data.filter}
 ----------------------\n`;
@@ -365,7 +364,7 @@ function copyByColor(filterFn) {
 رقم المعدة: ${v.number} ${emoji}
 الممشى الحالي: ${v.data.currentKm}
 ممشى آخر تغيير زيت: ${v.data.lastKm}
-الممشى منذ آخر تغيير: ${v.data.kmSinceLastChange}
+الممشى منذ آخر تغيير: ${isNoKm(v.data.lastKm) ? "-" : v.data.kmSinceLastChange}
 تاريخ آخر تغيير زيت: ${formattedDate}
 حالة فلتر الزيت: ${v.data.filter}
 ----------------------\n`;
@@ -406,8 +405,7 @@ exportBtn.addEventListener("click", async () => {
   querySnapshot.forEach(docItem => {
     const d = docItem.data();
     const currentKm = Number(d.currentKm) || 0;
-    const lastKm = Number(d.lastKm) || 0;
-    const kmDiff = currentKm - lastKm;
+    const kmDiff = isNoKm(d.lastKm) ? "-" : currentKm - Number(d.lastKm);
 
     const dateParts = d.date.split("-");
     const formattedDate = dateParts.length === 3 ? `${dateParts[0]}/${dateParts[1]}/${dateParts[2]}` : d.date;
@@ -417,7 +415,7 @@ exportBtn.addEventListener("click", async () => {
       "رقم المعدة": docItem.id,
       "الممشى الحالي": currentKm,
       "ممشى آخر تغيير زيت": d.lastKm,
-      "الممشى منذ آخر تغيير": d.lastKm === "لا يوجد عداد" ? "-" : kmDiff,
+      "الممشى منذ آخر تغيير": kmDiff,
       "تاريخ آخر تغيير زيت": formattedDate,
       "حالة فلتر الزيت": d.filter
     });
