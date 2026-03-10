@@ -58,7 +58,7 @@ function getStatusEmoji(type, kmSinceLastChange, lastKm) {
   if (!lastKm || lastKm === "لا يوجد عداد" || isNaN(Number(lastKm))) return "";
 
   const km = Number(kmSinceLastChange) || 0;
-  const volvoTypes = ["لوبد فولفو", "قلاب فولفو", "وايت فولفو"];
+  const volvoTypes = ["لوبد فولفو", "قلاب فولفو", "وايت فولفو", "فولفو"];
   const heavyTypes = ["قريدر", "شيول", "بوكلين", "بلدوزر", "بوبكات"];
 
   if (volvoTypes.includes(type)) {
