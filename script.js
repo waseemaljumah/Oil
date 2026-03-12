@@ -256,10 +256,6 @@ function updateDailyList() {
     vehicles.sort((a, b) => (b.kmDiff || 0) - (a.kmDiff || 0));
     vehicles.forEach(v => {
       const color = getStatusColor(v.data.type, v.data.kmSinceLastChange, v.data.lastKm, v.data.currentKmMode || "has");
-      const emoji = colorToEmoji(color);
-      const dateParts = (v.data.date || "").split("-");
-      const formattedDate = dateParts.length === 3 ? `${dateParts[0]}/${dateParts[1]}/${dateParts[2]}` : v.data.date;
-      const kmSince = isNoKm(v.data.lastKm) ? "-" : (v.data.kmSinceLastChange || 0);
 
       const div = document.createElement("div");
       div.className = `daily-item daily-${color}`;
@@ -268,14 +264,7 @@ function updateDailyList() {
           <div class="daily-remove-row">
             <button class="btn-remove-daily" data-number="${v.number}" title="إزالة من المتابعة اليومية">✕</button>
           </div>
-          <pre class="daily-text">نوع المعدة: ${type}
-رقم المعدة: ${v.number} ${emoji}
-الممشى الحالي: ${v.data.currentKm}
-ممشى آخر تغيير زيت: ${v.data.lastKm}
-الممشى منذ آخر تغيير: ${kmSince}
-تاريخ آخر تغيير زيت: ${formattedDate}
-حالة فلتر الزيت: ${v.data.filter}
-----------------------</pre>
+          <pre class="daily-text">${buildVehicleLine(v, type)}</pre>
         </div>
       `;
       dailyList.appendChild(div);
@@ -303,34 +292,39 @@ function updateDailyList() {
   buildOutputText();
 }
 
+function buildVehicleLine(v, type) {
+  const color = getStatusColor(v.data.type, v.data.kmSinceLastChange, v.data.lastKm, v.data.currentKmMode || "has");
+  const emoji = colorToEmoji(color);
+  const dateParts = (v.data.date || "").split("-");
+  const formattedDate = dateParts.length === 3 ? `${dateParts[0]}/${dateParts[1]}/${dateParts[2]}` : v.data.date;
+  const lastKmDisplay = isNoKm(v.data.lastKm) ? "لا يوجد عداد في آخر تغيير" : v.data.lastKm;
+  const kmSince = isNoKm(v.data.lastKm) ? "-" : (v.data.kmSinceLastChange || 0);
+  return `نوع المعدة: ${type}\nرقم المعدة: ${v.number} ${emoji}\nالممشى الحالي: ${v.data.currentKm}\nممشى آخر تغيير زيت: ${lastKmDisplay}\nالممشى منذ آخر تغيير: ${kmSince}\nتاريخ آخر تغيير زيت: ${formattedDate}\nحالة فلتر الزيت: ${v.data.filter}\n----------------------`;
+}
+
 function buildOutputText() {
   const output = document.getElementById("output");
   const today = new Date();
   const todayFormatted = `${today.getFullYear()}/${String(today.getMonth()+1).padStart(2,"0")}/${String(today.getDate()).padStart(2,"0")}`;
-  let text = `المتابعة اليومية للزيوت / تاريخ: ${todayFormatted}\n\n`;
+
+  const lines = [`المتابعة اليومية للزيوت / تاريخ: ${todayFormatted}`, ""];
 
   const sortedTypes = Object.keys(sessionVehicles).sort();
   sortedTypes.forEach(type => {
     const vehicles = sessionVehicles[type].filter(v => !dailyRemovedIds.has(v.number));
     if (!vehicles.length) return;
     vehicles.sort((a, b) => (b.kmDiff || 0) - (a.kmDiff || 0));
-    vehicles.forEach(v => {
-      const color = getStatusColor(v.data.type, v.data.kmSinceLastChange, v.data.lastKm, v.data.currentKmMode || "has");
-      const emoji = colorToEmoji(color);
-      const dateParts = (v.data.date || "").split("-");
-      const formattedDate = dateParts.length === 3 ? `${dateParts[0]}/${dateParts[1]}/${dateParts[2]}` : v.data.date;
-      text += `نوع المعدة: ${type}\nرقم المعدة: ${v.number} ${emoji}\nالممشى الحالي: ${v.data.currentKm}\nممشى آخر تغيير زيت: ${v.data.lastKm}\nالممشى منذ آخر تغيير: ${isNoKm(v.data.lastKm) ? "-" : v.data.kmSinceLastChange}\nتاريخ آخر تغيير زيت: ${formattedDate}\nحالة فلتر الزيت: ${v.data.filter}\n----------------------\n`;
-    });
+    vehicles.forEach(v => lines.push(buildVehicleLine(v, type)));
   });
-  if (output) output.innerText = text.trim();
+
+  if (output) output.innerText = lines.join("\n");
 }
 
 // ===== نسخ =====
 function copyByColorFilter(filterFn) {
   const today = new Date();
   const todayFormatted = `${today.getFullYear()}/${String(today.getMonth()+1).padStart(2,"0")}/${String(today.getDate()).padStart(2,"0")}`;
-  let text = `المتابعة اليومية للزيوت / تاريخ: ${todayFormatted}\n\n`;
-
+  const lines2 = [`المتابعة اليومية للزيوت / تاريخ: ${todayFormatted}`, ""];
   const sortedTypes = Object.keys(sessionVehicles).sort();
   sortedTypes.forEach(type => {
     const vehicles = sessionVehicles[type].filter(v => {
@@ -340,15 +334,9 @@ function copyByColorFilter(filterFn) {
     });
     if (!vehicles.length) return;
     vehicles.sort((a, b) => (b.kmDiff || 0) - (a.kmDiff || 0));
-    vehicles.forEach(v => {
-      const color = getStatusColor(v.data.type, v.data.kmSinceLastChange, v.data.lastKm, v.data.currentKmMode || "has");
-      const emoji = colorToEmoji(color);
-      const dateParts = (v.data.date || "").split("-");
-      const formattedDate = dateParts.length === 3 ? `${dateParts[0]}/${dateParts[1]}/${dateParts[2]}` : v.data.date;
-      text += `نوع المعدة: ${type}\nرقم المعدة: ${v.number} ${emoji}\nالممشى الحالي: ${v.data.currentKm}\nممشى آخر تغيير زيت: ${v.data.lastKm}\nالممشى منذ آخر تغيير: ${isNoKm(v.data.lastKm) ? "-" : v.data.kmSinceLastChange}\nتاريخ آخر تغيير زيت: ${formattedDate}\nحالة فلتر الزيت: ${v.data.filter}\n----------------------\n`;
-    });
+    vehicles.forEach(v => lines2.push(buildVehicleLine(v, type)));
   });
-  navigator.clipboard.writeText(text.trim());
+  navigator.clipboard.writeText(lines2.join("\n"));
   alert("✅ تم النسخ");
 }
 
