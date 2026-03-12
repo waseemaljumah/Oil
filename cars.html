@@ -10,15 +10,19 @@
 </head>
 <body>
 
-<button id="darkToggle">🌙</button>
+<nav class="top-nav">
+  <div class="nav-tabs">
+    <button class="nav-btn" onclick="window.location='index.html'">➕ البحث والإضافة والمتابعة</button>
+    <button class="nav-btn" onclick="window.location='index.html#stored'">🗂 المركبات المخزنة</button>
+    <button class="nav-btn active">🚗 مركبات الشركة</button>
+  </div>
+  <button id="darkToggle" class="dark-toggle-btn">🌙</button>
+</nav>
 
-<div style="text-align:center; margin-bottom:10px;">
-  <a href="index.html" class="page-link">← العودة لنظام المعدات</a>
-</div>
+<div class="tab-content active" style="display:block;">
 
 <h2>🚗 متابعة زيوت سيارات الشركة</h2>
 
-<!-- إضافة / تعديل سيارة -->
 <div class="card">
   <h3>إضافة سيارة أو تحديث بياناتها</h3>
   <label>رقم اللوحة</label>
@@ -32,7 +36,6 @@
   <button id="saveCarBtn">💾 حفظ / تحديث السيارة</button>
 </div>
 
-<!-- إضافة سجل تغيير زيت -->
 <div class="card">
   <h3>إضافة سجل تغيير زيت</h3>
   <label>رقم اللوحة</label>
@@ -56,7 +59,6 @@
   <button id="saveRecordBtn">➕ إضافة سجل</button>
 </div>
 
-<!-- بحث وحذف -->
 <div class="card">
   <h3>بحث وحذف</h3>
   <input id="searchPlate" placeholder="ادخل رقم اللوحة للبحث" />
@@ -64,10 +66,11 @@
   <button id="deleteCarBtn" class="btn-danger">🗑 حذف السيارة</button>
 </div>
 
-<!-- قائمة السيارات -->
 <div class="card">
   <h3>سيارات الشركة</h3>
   <div id="carList"></div>
+</div>
+
 </div>
 
 <script>
