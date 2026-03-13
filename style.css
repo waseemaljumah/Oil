@@ -189,13 +189,27 @@ body.dark #darkToggle:hover {
   border-radius: 8px;
   cursor: pointer;
   background: white;
+  color: #1a202c;
   font-size: 13px;
 }
 
 .filter-btn.active {
   border-color: #4a90d9;
   background: #e8f1fb;
+  color: #1a202c;
   font-weight: bold;
+}
+
+body.dark .filter-btn {
+  background: #3a4a5c;
+  color: #e2e8f0;
+  border-color: #4a5568;
+}
+
+body.dark .filter-btn.active {
+  background: #2b6cb0;
+  color: #fff;
+  border-color: #63b3ed;
 }
 
 .copy-filtered-btn {

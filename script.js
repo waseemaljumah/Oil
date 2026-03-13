@@ -20,6 +20,9 @@ const deleteBtn     = document.getElementById("deleteBtn");
 const copyBtn       = document.getElementById("copyBtn");
 const copyGreenBtn  = document.getElementById("copyGreenBtn");
 const copyRedBtn    = document.getElementById("copyRedBtn");
+const copyWhiteBtn  = document.getElementById("copyWhiteBtn");
+const copyBlueBtn   = document.getElementById("copyBlueBtn");
+const copyBlackBtn  = document.getElementById("copyBlackBtn");
 const vehicleList   = document.getElementById("vehicleList");
 const outputDiv     = document.getElementById("output");
 
@@ -86,9 +89,9 @@ function isNoKm(lastKm) {
 function getStatusEmoji(type, currentKmRaw, lastKm) {
   const cur = parseCurrentKm(currentKmRaw);
 
-  if (isNoKm(lastKm))      return "⚫";
-  if (cur.type === "none")   return "⚪";
   if (cur.type === "broken") return "🔵";
+  if (cur.type === "none")   return "⚪";
+  if (isNoKm(lastKm))        return "⚫";
 
   const kmDiff = cur.value - Number(lastKm);
   const volvoTypes = ["لوبد فولفو", "قلاب فولفو", "وايت فولفو", "فولفو"];
@@ -450,6 +453,9 @@ function copyByColor(filterFn) {
 copyBtn.addEventListener("click", () => { navigator.clipboard.writeText(outputDiv.innerText); alert("تم النسخ"); });
 copyGreenBtn.addEventListener("click", () => { copyByColor(e => e === "🟢"); });
 copyRedBtn.addEventListener("click",   () => { copyByColor(e => e === "🔴"); });
+copyWhiteBtn.addEventListener("click", () => { copyByColor(e => e === "⚪"); });
+copyBlueBtn.addEventListener("click",  () => { copyByColor(e => e === "🔵"); });
+copyBlackBtn.addEventListener("click", () => { copyByColor(e => e === "⚫"); });
 
 // =================== تفريغ النموذج ===================
 function clearForm() {
