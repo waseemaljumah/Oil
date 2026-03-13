@@ -98,12 +98,14 @@
 </div>
 
 <div class="card">
-  <h3>المركبات المخزنة</h3>
-  <div class="stored-search-bar">
-    <input id="storedSearchInput" placeholder="🔍 ابحث برقم المعدة..." />
-    <button id="storedSearchClearBtn">✕</button>
+  <h3 id="vehicleListToggle" style="cursor:pointer; user-select:none;">المركبات المخزنة <span id="vehicleListArrow">▼</span></h3>
+  <div id="vehicleListContent" style="display:none;">
+    <div class="stored-search-bar">
+      <input id="storedSearchInput" placeholder="🔍 ابحث برقم المعدة..." />
+      <button id="storedSearchClearBtn">✕</button>
+    </div>
+    <div id="vehicleList"></div>
   </div>
-  <div id="vehicleList"></div>
 </div>
 
 <div class="card">

@@ -305,10 +305,26 @@ function renderVehicles(filterColor = "all", searchTerm = "") {
   sortedTypes.forEach(type => {
     grouped[type].sort((a, b) => (b.data.kmSinceLastChange||0) - (a.data.kmSinceLastChange||0));
 
+    // عداد الألوان في المجموعة
+    const counts = { "🟢":0, "🔴":0, "🔵":0, "⚪":0, "⚫":0 };
+    grouped[type].forEach(v => { const e = getStatusEmoji(v.data.type, v.data.currentKm, v.data.lastKm); if (counts[e] !== undefined) counts[e]++; });
+    const summary = Object.entries(counts).filter(([,n])=>n>0).map(([e,n])=>`${e}${n}`).join(" ");
+
     const groupHeader = document.createElement("div");
-    groupHeader.className = "group-header";
-    groupHeader.innerHTML = `<strong>📂 ${type}</strong>`;
+    groupHeader.className = "group-header group-accordion";
+    groupHeader.innerHTML = `
+      <div class="group-header-row">
+        <strong>📂 ${type}</strong>
+        <span class="group-summary">${summary}</span>
+        <span class="group-arrow">▼</span>
+      </div>
+    `;
     vehicleList.appendChild(groupHeader);
+
+    // حاوية المركبات — مخفية افتراضياً
+    const groupBody = document.createElement("div");
+    groupBody.className = "group-body";
+    groupBody.style.display = "none";
 
     grouped[type].forEach(v => {
       const emoji = getStatusEmoji(v.data.type, v.data.currentKm, v.data.lastKm);
@@ -335,7 +351,16 @@ function renderVehicles(filterColor = "all", searchTerm = "") {
           <button class="btn-edit" data-id="${v.id}">✏️ تعديل</button>
         </div>
       `;
-      vehicleList.appendChild(div);
+      groupBody.appendChild(div);
+    });
+
+    vehicleList.appendChild(groupBody);
+
+    // toggle عند الضغط على العنوان
+    groupHeader.addEventListener("click", () => {
+      const isOpen = groupBody.style.display !== "none";
+      groupBody.style.display = isOpen ? "none" : "block";
+      groupHeader.querySelector(".group-arrow").textContent = isOpen ? "▼" : "▲";
     });
   });
 
@@ -507,6 +532,15 @@ document.getElementById("storedSearchInput").addEventListener("input", () => {
 document.getElementById("storedSearchClearBtn").addEventListener("click", () => {
   document.getElementById("storedSearchInput").value = "";
   renderVehicles("all", "");
+});
+
+// =================== فتح/إغلاق قسم المركبات المخزنة ===================
+document.getElementById("vehicleListToggle").addEventListener("click", () => {
+  const content = document.getElementById("vehicleListContent");
+  const arrow   = document.getElementById("vehicleListArrow");
+  const isOpen  = content.style.display !== "none";
+  content.style.display = isOpen ? "none" : "block";
+  arrow.textContent = isOpen ? "▼" : "▲";
 });
 
 // إغلاق القوائم عند النقر خارجها
