@@ -95,10 +95,11 @@ function getStatusEmoji(type, currentKmRaw, lastKm) {
 
   const kmDiff = cur.value - Number(lastKm);
   const volvoTypes = ["لوبد فولفو", "قلاب فولفو", "وايت فولفو", "فولفو"];
-  const heavyTypes = ["قريدر", "شيول", "بوكلين", "بلدوزر", "بوبكات"];
+  const heavyTypes = ["قريدر", "شيول", "بوكلين", "بلدوزر", "بوبكات", "مدحلة"];
 
   if (volvoTypes.includes(type))    return kmDiff >= 5500 ? "🔴" : "🟢";
   if (type === "قلاب مرسيدس")       return kmDiff >= 9500 ? "🔴" : "🟢";
+  if (type === "دينا")               return kmDiff >= 4500 ? "🔴" : "🟢";
   if (heavyTypes.includes(type))    return kmDiff >= 250  ? "🔴" : "🟢";
   return "🟢";
 }
@@ -163,7 +164,7 @@ searchBtn.addEventListener("click", async () => {
     const data = docSnap.data();
     document.getElementById("number").value = number;
 
-    const knownTypes = ["قلاب فولفو","لوبد فولفو","وايت فولفو","قلاب مرسيدس","وايت","شيول","بوكلين","بلدوزر","بوبكات"];
+    const knownTypes = ["قلاب فولفو","لوبد فولفو","وايت فولفو","قلاب مرسيدس","وايت","دينا","شيول","بوكلين","بلدوزر","بوبكات"];
     typeSelect.value = knownTypes.includes(data.type) ? data.type : "اخرى";
     typeOther.value  = typeSelect.value === "اخرى" ? data.type : "";
     typeOther.style.display = typeSelect.value === "اخرى" ? "block" : "none";
@@ -344,7 +345,7 @@ function renderVehicles(filterColor = "all") {
 
       document.getElementById("number").value = id;
 
-      const knownTypes = ["قلاب فولفو","لوبد فولفو","وايت فولفو","قلاب مرسيدس","وايت","شيول","بوكلين","بلدوزر","بوبكات"];
+      const knownTypes = ["قلاب فولفو","لوبد فولفو","وايت فولفو","قلاب مرسيدس","وايت","دينا","شيول","بوكلين","بلدوزر","بوبكات"];
       typeSelect.value = knownTypes.includes(data.type) ? data.type : "اخرى";
       typeOther.value  = typeSelect.value === "اخرى" ? data.type : "";
       typeOther.style.display = typeSelect.value === "اخرى" ? "block" : "none";
