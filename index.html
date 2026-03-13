@@ -81,16 +81,27 @@
 <div class="card">
   <h3>المتابعة اليومية</h3>
   <div id="output"></div>
-  <button id="copyBtn">📋 نسخ الكل</button>
-  <button id="copyGreenBtn">🟢 نسخ الأخضر فقط</button>
-  <button id="copyRedBtn">🔴 نسخ الأحمر فقط</button>
-  <button id="copyWhiteBtn">⚪ نسخ لا يوجد ممشى</button>
-  <button id="copyBlueBtn">🔵 نسخ العداد لا يعمل</button>
-  <button id="copyBlackBtn">⚫ نسخ بدون عداد سابق</button>
+  <div class="copy-row">
+    <button id="copyBtn">📋 نسخ الكل</button>
+    <div class="copy-dropdown-wrap">
+      <button class="copy-dropdown-toggle" id="copyFilterToggle">🎨 نسخ حسب اللون ▾</button>
+      <div class="copy-dropdown-menu" id="copyDropdownMenu">
+        <button id="copyGreenBtn">🟢 نسخ الأخضر فقط</button>
+        <button id="copyRedBtn">🔴 نسخ الأحمر فقط</button>
+        <button id="copyWhiteBtn">⚪ نسخ لا يوجد ممشى</button>
+        <button id="copyBlueBtn">🔵 نسخ العداد لا يعمل</button>
+        <button id="copyBlackBtn">⚫ نسخ بدون عداد سابق</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div class="card">
   <h3>المركبات المخزنة</h3>
+  <div class="stored-search-bar">
+    <input id="storedSearchInput" placeholder="🔍 ابحث برقم المعدة..." />
+    <button id="storedSearchClearBtn">✕</button>
+  </div>
   <div id="vehicleList"></div>
 </div>
 

@@ -233,31 +233,56 @@ async function loadVehicles() {
   renderVehicles("all");
 }
 
-function renderVehicles(filterColor = "all") {
+function renderVehicles(filterColor = "all", searchTerm = "") {
   vehicleList.innerHTML = "";
 
+  // شريط التصفية - قائمة منسدلة
   const filterBar = document.createElement("div");
   filterBar.className = "filter-bar";
   filterBar.innerHTML = `
-    <button class="filter-btn ${filterColor==='all'   ?'active':''}" data-filter="all">📋 الكل</button>
-    <button class="filter-btn ${filterColor==='green' ?'active':''}" data-filter="green">🟢 الأخضر</button>
-    <button class="filter-btn ${filterColor==='red'   ?'active':''}" data-filter="red">🔴 الأحمر</button>
-    <button class="filter-btn ${filterColor==='white' ?'active':''}" data-filter="white">⚪ لا يوجد ممشى</button>
-    <button class="filter-btn ${filterColor==='blue'  ?'active':''}" data-filter="blue">🔵 العداد لا يعمل</button>
-    <button class="filter-btn ${filterColor==='black' ?'active':''}" data-filter="black">⚫ بدون عداد سابق</button>
+    <div class="filter-dropdown-wrap">
+      <button class="filter-dropdown-toggle" id="filterDropdownToggle">
+        ${filterColor === 'all'   ? '📋 الكل' :
+          filterColor === 'green' ? '🟢 الأخضر' :
+          filterColor === 'red'   ? '🔴 الأحمر' :
+          filterColor === 'white' ? '⚪ لا يوجد ممشى' :
+          filterColor === 'blue'  ? '🔵 العداد لا يعمل' :
+                                    '⚫ بدون عداد سابق'} ▾
+      </button>
+      <div class="filter-dropdown-menu" id="filterDropdownMenu">
+        <button class="filter-opt ${filterColor==='all'   ?'active':''}" data-filter="all">📋 الكل</button>
+        <button class="filter-opt ${filterColor==='green' ?'active':''}" data-filter="green">🟢 الأخضر</button>
+        <button class="filter-opt ${filterColor==='red'   ?'active':''}" data-filter="red">🔴 الأحمر</button>
+        <button class="filter-opt ${filterColor==='white' ?'active':''}" data-filter="white">⚪ لا يوجد ممشى</button>
+        <button class="filter-opt ${filterColor==='blue'  ?'active':''}" data-filter="blue">🔵 العداد لا يعمل</button>
+        <button class="filter-opt ${filterColor==='black' ?'active':''}" data-filter="black">⚫ بدون عداد سابق</button>
+      </div>
+    </div>
     <button class="copy-filtered-btn" id="copyFilteredBtn">📋 نسخ المعروض</button>
   `;
   vehicleList.appendChild(filterBar);
 
-  filterBar.querySelectorAll(".filter-btn").forEach(btn => {
-    btn.addEventListener("click", () => { renderVehicles(btn.dataset.filter); });
+  // فتح/إغلاق قائمة التصفية
+  const filterToggle = document.getElementById("filterDropdownToggle");
+  const filterMenu   = document.getElementById("filterDropdownMenu");
+  filterToggle.addEventListener("click", (e) => {
+    e.stopPropagation();
+    filterMenu.classList.toggle("open");
+  });
+  filterBar.querySelectorAll(".filter-opt").forEach(btn => {
+    btn.addEventListener("click", () => {
+      filterMenu.classList.remove("open");
+      const term = document.getElementById("storedSearchInput")?.value.trim() || "";
+      renderVehicles(btn.dataset.filter, term);
+    });
   });
 
   const emojiMap = { green:"🟢", red:"🔴", white:"⚪", blue:"🔵", black:"⚫" };
 
   const filtered = allVehiclesData.filter(v => {
-    if (filterColor === "all") return true;
-    return getStatusEmoji(v.data.type, v.data.currentKm, v.data.lastKm) === emojiMap[filterColor];
+    const colorOk = filterColor === "all" || getStatusEmoji(v.data.type, v.data.currentKm, v.data.lastKm) === emojiMap[filterColor];
+    const searchOk = !searchTerm || v.id.includes(searchTerm);
+    return colorOk && searchOk;
   });
 
   const grouped = {};
@@ -452,11 +477,34 @@ function copyByColor(filterFn) {
 }
 
 copyBtn.addEventListener("click", () => { navigator.clipboard.writeText(outputDiv.innerText); alert("تم النسخ"); });
-copyGreenBtn.addEventListener("click", () => { copyByColor(e => e === "🟢"); });
-copyRedBtn.addEventListener("click",   () => { copyByColor(e => e === "🔴"); });
-copyWhiteBtn.addEventListener("click", () => { copyByColor(e => e === "⚪"); });
-copyBlueBtn.addEventListener("click",  () => { copyByColor(e => e === "🔵"); });
-copyBlackBtn.addEventListener("click", () => { copyByColor(e => e === "⚫"); });
+copyGreenBtn.addEventListener("click", () => { copyByColor(e => e === "🟢"); document.getElementById("copyDropdownMenu")?.classList.remove("open"); });
+copyRedBtn.addEventListener("click",   () => { copyByColor(e => e === "🔴"); document.getElementById("copyDropdownMenu")?.classList.remove("open"); });
+copyWhiteBtn.addEventListener("click", () => { copyByColor(e => e === "⚪"); document.getElementById("copyDropdownMenu")?.classList.remove("open"); });
+copyBlueBtn.addEventListener("click",  () => { copyByColor(e => e === "🔵"); document.getElementById("copyDropdownMenu")?.classList.remove("open"); });
+copyBlackBtn.addEventListener("click", () => { copyByColor(e => e === "⚫"); document.getElementById("copyDropdownMenu")?.classList.remove("open"); });
+
+// =================== dropdown النسخ ===================
+document.getElementById("copyFilterToggle").addEventListener("click", (e) => {
+  e.stopPropagation();
+  document.getElementById("copyDropdownMenu").classList.toggle("open");
+});
+
+// =================== بحث المركبات المخزنة ===================
+document.getElementById("storedSearchInput").addEventListener("input", () => {
+  const term = document.getElementById("storedSearchInput").value.trim();
+  renderVehicles("all", term);
+});
+
+document.getElementById("storedSearchClearBtn").addEventListener("click", () => {
+  document.getElementById("storedSearchInput").value = "";
+  renderVehicles("all", "");
+});
+
+// إغلاق القوائم عند النقر خارجها
+document.addEventListener("click", () => {
+  document.getElementById("copyDropdownMenu")?.classList.remove("open");
+  document.getElementById("filterDropdownMenu")?.classList.remove("open");
+});
 
 // =================== تفريغ النموذج ===================
 function clearForm() {

@@ -177,40 +177,7 @@ body.dark #darkToggle:hover {
   background: #cbd5e0;
 }
 
-.filter-bar {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.filter-btn {
-  padding: 6px 14px;
-  border: 2px solid #ccc;
-  border-radius: 8px;
-  cursor: pointer;
-  background: white;
-  color: #1a202c;
-  font-size: 13px;
-}
-
-.filter-btn.active {
-  border-color: #4a90d9;
-  background: #e8f1fb;
-  color: #1a202c;
-  font-weight: bold;
-}
-
-body.dark .filter-btn {
-  background: #3a4a5c;
-  color: #e2e8f0;
-  border-color: #4a5568;
-}
-
-body.dark .filter-btn.active {
-  background: #2b6cb0;
-  color: #fff;
-  border-color: #63b3ed;
-}
+/* filter-bar و filter-btn أُستُعيض عنهما بـ filter-dropdown أعلاه */
 
 .copy-filtered-btn {
   margin-top: 14px;
@@ -222,4 +189,174 @@ body.dark .filter-btn.active {
   border-radius: 8px;
   cursor: pointer;
   font-size: 14px;
+}
+
+/* =================== filter bar dropdown =================== */
+.filter-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  align-items: center;
+}
+
+.filter-dropdown-wrap {
+  position: relative;
+  flex: 1;
+}
+
+.filter-dropdown-toggle {
+  width: 100%;
+  margin: 0;
+  background: #4a90d9;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 14px;
+  cursor: pointer;
+  text-align: center;
+}
+
+.filter-dropdown-toggle:hover { background: #357ab8; }
+
+.filter-dropdown-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  left: 0;
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  z-index: 999;
+  overflow: hidden;
+}
+
+.filter-dropdown-menu.open { display: block; }
+
+.filter-opt {
+  width: 100%;
+  margin: 0;
+  border-radius: 0;
+  border: none;
+  border-bottom: 1px solid #eee;
+  background: white;
+  color: #1a202c;
+  text-align: right;
+  padding: 10px 14px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.filter-opt:last-child { border-bottom: none; }
+.filter-opt:hover { background: #e8f1fb; }
+.filter-opt.active { background: #e8f1fb; font-weight: bold; color: #1a73e8; }
+
+body.dark .filter-dropdown-menu { background: #2d3748; border-color: #4a5568; }
+body.dark .filter-opt { background: #2d3748; color: #e2e8f0; border-bottom-color: #4a5568; }
+body.dark .filter-opt:hover { background: #3a4a5c; }
+body.dark .filter-opt.active { background: #2b6cb0; color: #fff; }
+
+/* =================== copy row =================== */
+.copy-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.copy-row > #copyBtn {
+  flex: 1;
+  margin: 0;
+}
+
+.copy-dropdown-wrap {
+  position: relative;
+  flex: 1;
+}
+
+.copy-dropdown-toggle {
+  width: 100%;
+  margin: 0;
+  background: #5a9fd4;
+}
+
+.copy-dropdown-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  left: 0;
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  z-index: 999;
+  overflow: hidden;
+}
+
+.copy-dropdown-menu.open {
+  display: block;
+}
+
+.copy-dropdown-menu button {
+  width: 100%;
+  margin: 0;
+  border-radius: 0;
+  border: none;
+  border-bottom: 1px solid #eee;
+  background: white;
+  color: #1a202c;
+  text-align: right;
+  padding: 10px 14px;
+  font-size: 14px;
+}
+
+.copy-dropdown-menu button:last-child {
+  border-bottom: none;
+}
+
+.copy-dropdown-menu button:hover {
+  background: #e8f1fb;
+}
+
+body.dark .copy-dropdown-menu {
+  background: #2d3748;
+  border-color: #4a5568;
+}
+
+body.dark .copy-dropdown-menu button {
+  background: #2d3748;
+  color: #e2e8f0;
+  border-bottom-color: #4a5568;
+}
+
+body.dark .copy-dropdown-menu button:hover {
+  background: #3a4a5c;
+}
+
+/* =================== بحث المركبات المخزنة =================== */
+.stored-search-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.stored-search-bar input {
+  flex: 1;
+  margin: 0;
+}
+
+.stored-search-bar button {
+  width: auto;
+  padding: 8px 14px;
+  margin: 0;
+  background: #aaa;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.stored-search-bar button:hover {
+  background: #888;
 }
