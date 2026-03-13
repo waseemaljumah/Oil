@@ -572,32 +572,154 @@ function clearForm() {
 // =================== تصدير Excel ===================
 document.getElementById("exportBtn").addEventListener("click", async () => {
   const querySnapshot = await getDocs(collection(db, "vehicles"));
+  const sortMode = document.getElementById("exportSortSelect").value;
+
+  const colorOrder = { "🔴": 0, "🟢": 1, "🔵": 2, "⚪": 3, "⚫": 4 };
+
   let dataArray = [];
   querySnapshot.forEach(docItem => {
     const d = docItem.data();
     const cur = parseCurrentKm(d.currentKm);
     const kmDiff = (!isNoKm(d.lastKm) && cur.type === "value") ? cur.value - Number(d.lastKm) : "-";
     const dp = d.date ? d.date.split("-") : [];
-    const fd = dp.length === 3 ? `${dp[0]}/${dp[1]}/${dp[2]}` : d.date;
+    const fd = dp.length === 3 ? `${dp[2]}/${dp[1]}/${dp[0]}` : (d.date || "");
     const emoji = getStatusEmoji(d.type, d.currentKm, d.lastKm);
     dataArray.push({
-      "نوع المعدة": d.type,
-      "رقم المعدة": docItem.id + " " + emoji,
-      "الممشى الحالي": d.currentKm,
-      "ممشى آخر تغيير زيت": d.lastKm,
-      "الممشى منذ آخر تغيير": kmDiff,
-      "تاريخ آخر تغيير زيت": fd,
-      "حالة فلتر الزيت": d.filter
+      type: d.type,
+      id: docItem.id,
+      currentKm: d.currentKm,
+      lastKm: d.lastKm,
+      kmDiff,
+      date: fd,
+      filter: d.filter,
+      emoji
     });
   });
-  dataArray.sort((a,b) => a["نوع المعدة"] < b["نوع المعدة"] ? -1 : a["نوع المعدة"] > b["نوع المعدة"] ? 1 : 0);
-  const worksheet = XLSX.utils.json_to_sheet(dataArray, { origin: 1 });
+
+  // ترتيب
+  if (sortMode === "type") {
+    dataArray.sort((a, b) => a.type.localeCompare(b.type, "ar") || String(a.id).localeCompare(String(b.id), undefined, { numeric: true }));
+  } else if (sortMode === "numAsc") {
+    dataArray.sort((a, b) => String(a.id).localeCompare(String(b.id), undefined, { numeric: true }));
+  } else if (sortMode === "numDesc") {
+    dataArray.sort((a, b) => String(b.id).localeCompare(String(a.id), undefined, { numeric: true }));
+  } else if (sortMode === "color") {
+    dataArray.sort((a, b) => (colorOrder[a.emoji] ?? 9) - (colorOrder[b.emoji] ?? 9) || a.type.localeCompare(b.type, "ar"));
+  }
+
   const today = new Date();
-  const yyyy = today.getFullYear(), mm = String(today.getMonth()+1).padStart(2,"0"), dd = String(today.getDate()).padStart(2,"0");
-  XLSX.utils.sheet_add_aoa(worksheet, [[`المتابعة اليومية للزيوت / تاريخ: ${yyyy}/${mm}/${dd}`]], { origin: 0 });
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, "المركبات");
-  XLSX.writeFile(workbook, "متابعة_المركبات.xlsx");
+  const yyyy = today.getFullYear();
+  const mm   = String(today.getMonth() + 1).padStart(2, "0");
+  const dd   = String(today.getDate()).padStart(2, "0");
+  const dateStr = `${dd}/${mm}/${yyyy}`;
+
+  // بناء مصفوفة الصفوف يدوياً
+  // صف 0: عنوان رئيسي
+  // صف 1: فارغ
+  // صف 2: رؤوس الأعمدة
+  // صف 3+: البيانات
+
+  const headers = ["#", "نوع المعدة", "رقم المعدة", "الممشى الحالي", "ممشى آخر تغيير زيت", "الممشى منذ آخر تغيير", "تاريخ آخر تغيير زيت", "حالة فلتر الزيت", "الحالة"];
+  const numCols = headers.length;
+
+  const aoa = [];
+  // صف العنوان
+  aoa.push([`متابعة زيوت المركبات — تاريخ: ${dateStr}`, ...Array(numCols - 1).fill("")]);
+  // صف فارغ
+  aoa.push(Array(numCols).fill(""));
+  // رؤوس الأعمدة
+  aoa.push(headers);
+  // البيانات
+  dataArray.forEach((v, i) => {
+    aoa.push([
+      i + 1,
+      v.type,
+      v.id,
+      v.currentKm,
+      v.lastKm,
+      v.kmDiff,
+      v.date,
+      v.filter,
+      v.emoji
+    ]);
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+  // عرض الأعمدة
+  ws["!cols"] = [
+    { wch: 4  },  // #
+    { wch: 16 },  // نوع المعدة
+    { wch: 12 },  // رقم المعدة
+    { wch: 14 },  // الممشى الحالي
+    { wch: 20 },  // ممشى آخر تغيير
+    { wch: 18 },  // الممشى منذ آخر تغيير
+    { wch: 18 },  // تاريخ
+    { wch: 28 },  // حالة الفلتر
+    { wch: 8  },  // الحالة
+  ];
+
+  // دمج خلايا العنوان
+  ws["!merges"] = [
+    { s: { r: 0, c: 0 }, e: { r: 0, c: numCols - 1 } }
+  ];
+
+  // تطبيق الستايلات
+  const titleCell = XLSX.utils.encode_cell({ r: 0, c: 0 });
+  ws[titleCell].s = {
+    font:      { bold: true, sz: 14, color: { rgb: "FFFFFF" } },
+    fill:      { fgColor: { rgb: "1A5276" } },
+    alignment: { horizontal: "center", vertical: "center", wrapText: true },
+    border:    { bottom: { style: "medium", color: { rgb: "FFFFFF" } } }
+  };
+
+  // ارتفاع صف العنوان
+  ws["!rows"] = [{ hpt: 28 }, { hpt: 6 }, { hpt: 20 }];
+
+  // ستايل رؤوس الأعمدة (صف 2)
+  headers.forEach((_, ci) => {
+    const cell = XLSX.utils.encode_cell({ r: 2, c: ci });
+    if (!ws[cell]) ws[cell] = { v: headers[ci], t: "s" };
+    ws[cell].s = {
+      font:      { bold: true, sz: 11, color: { rgb: "FFFFFF" } },
+      fill:      { fgColor: { rgb: "2471A3" } },
+      alignment: { horizontal: "center", vertical: "center" },
+      border: {
+        top:    { style: "thin", color: { rgb: "FFFFFF" } },
+        bottom: { style: "thin", color: { rgb: "FFFFFF" } },
+        left:   { style: "thin", color: { rgb: "FFFFFF" } },
+        right:  { style: "thin", color: { rgb: "FFFFFF" } },
+      }
+    };
+  });
+
+  // ألوان الصفوف حسب الحالة
+  const rowColors = { "🔴": "FADBD8", "🟢": "D5F5E3", "🔵": "D6EAF8", "⚪": "F2F3F4", "⚫": "EAECEE" };
+  const borderThin = {
+    top:    { style: "thin", color: { rgb: "BDC3C7" } },
+    bottom: { style: "thin", color: { rgb: "BDC3C7" } },
+    left:   { style: "thin", color: { rgb: "BDC3C7" } },
+    right:  { style: "thin", color: { rgb: "BDC3C7" } },
+  };
+
+  dataArray.forEach((v, ri) => {
+    const rowIdx = ri + 3; // بعد العنوان + فارغ + رؤوس
+    const bg = rowColors[v.emoji] || "FFFFFF";
+    for (let ci = 0; ci < numCols; ci++) {
+      const cell = XLSX.utils.encode_cell({ r: rowIdx, c: ci });
+      if (!ws[cell]) ws[cell] = { v: "", t: "s" };
+      ws[cell].s = {
+        fill:      { fgColor: { rgb: bg } },
+        alignment: { horizontal: "center", vertical: "center" },
+        border:    borderThin,
+        font:      { sz: 10 }
+      };
+    }
+  });
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "المركبات");
+  XLSX.writeFile(wb, `متابعة_المركبات_${dd}-${mm}-${yyyy}.xlsx`);
 });
 
 loadVehicles();
