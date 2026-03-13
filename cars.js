@@ -296,7 +296,7 @@ async function loadCars() {
       }
     });
   });
-
+ 
   // زر تعديل السيارة
   document.querySelectorAll(".btn-edit-car").forEach(btn => {
     btn.addEventListener("click", async () => {

@@ -721,5 +721,5 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
   XLSX.utils.book_append_sheet(wb, ws, "المركبات");
   XLSX.writeFile(wb, `متابعة_المركبات_${dd}-${mm}-${yyyy}.xlsx`);
 });
-
+ 
 loadVehicles();
