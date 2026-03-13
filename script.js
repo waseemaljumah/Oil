@@ -15,6 +15,7 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 const saveBtn       = document.getElementById("saveBtn");
+const saveSilentBtn = document.getElementById("saveSilentBtn");
 const searchBtn     = document.getElementById("searchBtn");
 const deleteBtn     = document.getElementById("deleteBtn");
 const copyBtn       = document.getElementById("copyBtn");
@@ -104,8 +105,8 @@ function getStatusEmoji(type, currentKmRaw, lastKm) {
   return "🟢";
 }
 
-// =================== حفظ / تحديث ===================
-saveBtn.addEventListener("click", async () => {
+// =================== دالة الحفظ المشتركة ===================
+async function saveVehicle(addToSession) {
   const number = document.getElementById("number").value.trim();
   if (!number) { alert("ادخل رقم المعدة"); return; }
 
@@ -113,14 +114,12 @@ saveBtn.addEventListener("click", async () => {
   const filterVal = filterSelect.value === "اخرى" ? filterOther.value : filterSelect.value;
   const dateVal   = document.getElementById("date").value;
 
-  // الممشى الحالي
   let currentKmStored;
   const curSel = currentKmSelect.value;
   if (curSel === "none")        currentKmStored = NO_KM_CURRENT;
   else if (curSel === "broken") currentKmStored = BROKEN_CURRENT;
   else                          currentKmStored = Number(currentKmInput.value) || 0;
 
-  // ممشى آخر تغيير زيت
   let lastKmStored;
   const lkSel = lastKmSelect.value;
   if (lkSel === "no")          lastKmStored = NO_KM_LAST;
@@ -144,15 +143,25 @@ saveBtn.addEventListener("click", async () => {
 
   await setDoc(doc(db, "vehicles", number), data);
 
-  if (!sessionVehicles[typeVal]) sessionVehicles[typeVal] = [];
-  sessionVehicles[typeVal] = sessionVehicles[typeVal].filter(v => v.number !== number);
-  sessionVehicles[typeVal].push({ number, data, kmDiff });
+  if (addToSession) {
+    if (!sessionVehicles[typeVal]) sessionVehicles[typeVal] = [];
+    sessionVehicles[typeVal] = sessionVehicles[typeVal].filter(v => v.number !== number);
+    sessionVehicles[typeVal].push({ number, data, kmDiff });
+    updateOutput();
+    alert("✅ تم الحفظ والإضافة للمتابعة اليومية");
+  } else {
+    alert("✅ تم الحفظ / التحديث");
+  }
 
-  updateOutput();
   clearForm();
   loadVehicles();
-  alert("✅ تم الحفظ أو التحديث والإضافة للمتابعة اليومية");
-});
+}
+
+// =================== حفظ + إضافة للمتابعة ===================
+saveBtn.addEventListener("click", () => saveVehicle(true));
+
+// =================== حفظ فقط ===================
+saveSilentBtn.addEventListener("click", () => saveVehicle(false));
 
 // =================== البحث ===================
 searchBtn.addEventListener("click", async () => {
