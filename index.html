@@ -20,8 +20,13 @@
 <h2>نموذج إدخال بيانات المركبات</h2>
 
 <div class="card">
+  <!-- رقم المعدة + بحث + حذف في صف واحد -->
   <label>رقم المعدة</label>
-  <input id="number" placeholder="رقم المعدة"/>
+  <div class="number-row">
+    <input id="number" placeholder="رقم المعدة" />
+    <button id="searchBtn" class="btn-sm btn-blue">🔍 بحث</button>
+    <button id="deleteBtn" class="btn-sm btn-red">🗑 حذف</button>
+  </div>
 
   <label>نوع المعدة</label>
   <select id="typeSelect">
@@ -73,13 +78,6 @@
 </div>
 
 <div class="card">
-  <h3>بحث وحذف</h3>
-  <input id="searchNumber" placeholder="ادخل رقم المعدة للبحث" />
-  <button id="searchBtn">بحث</button>
-  <button id="deleteBtn">حذف</button>
-</div>
-
-<div class="card">
   <h3>المتابعة اليومية</h3>
   <div id="output"></div>
   <div class="copy-row">
@@ -87,11 +85,14 @@
     <div class="copy-dropdown-wrap">
       <button class="copy-dropdown-toggle" id="copyFilterToggle">🎨 نسخ حسب اللون ▾</button>
       <div class="copy-dropdown-menu" id="copyDropdownMenu">
-        <button id="copyGreenBtn">🟢 نسخ الأخضر فقط</button>
-        <button id="copyRedBtn">🔴 نسخ الأحمر فقط</button>
-        <button id="copyWhiteBtn">⚪ نسخ لا يوجد ممشى</button>
-        <button id="copyBlueBtn">🔵 نسخ العداد لا يعمل</button>
-        <button id="copyBlackBtn">⚫ نسخ بدون عداد سابق</button>
+        <div class="color-checkboxes">
+          <label><input type="checkbox" value="🟢" /> 🟢 الأخضر</label>
+          <label><input type="checkbox" value="🔴" /> 🔴 الأحمر</label>
+          <label><input type="checkbox" value="⚪" /> ⚪ لا يوجد ممشى</label>
+          <label><input type="checkbox" value="🔵" /> 🔵 العداد لا يعمل</label>
+          <label><input type="checkbox" value="⚫" /> ⚫ بدون عداد سابق</label>
+        </div>
+        <button id="copySelectedColorsBtn">📋 نسخ المحدد</button>
       </div>
     </div>
   </div>
@@ -117,20 +118,24 @@
     <option value="numDesc">حسب رقم المعدة — تنازلي</option>
     <option value="color">حسب اللون (🔴 🟢 🔵 ⚪ ⚫)</option>
   </select>
+  <label>تصفية الألوان للتصدير</label>
+  <div class="color-checkboxes export-color-checkboxes">
+    <label><input type="checkbox" value="🟢" checked /> 🟢 الأخضر</label>
+    <label><input type="checkbox" value="🔴" checked /> 🔴 الأحمر</label>
+    <label><input type="checkbox" value="⚪" checked /> ⚪ لا يوجد ممشى</label>
+    <label><input type="checkbox" value="🔵" checked /> 🔵 العداد لا يعمل</label>
+    <label><input type="checkbox" value="⚫" checked /> ⚫ بدون عداد سابق</label>
+  </div>
   <button id="exportBtn">تصدير إلى Excel</button>
 </div>
-
 
 <script>
   const darkToggle = document.getElementById("darkToggle");
   const body = document.body;
-
-  // تحميل الوضع المحفوظ
   if (localStorage.getItem("darkMode") === "on") {
     body.classList.add("dark");
     darkToggle.textContent = "☀️";
   }
-
   darkToggle.addEventListener("click", () => {
     body.classList.toggle("dark");
     const isDark = body.classList.contains("dark");
@@ -138,6 +143,6 @@
     localStorage.setItem("darkMode", isDark ? "on" : "off");
   });
 </script>
- 
+
 </body>
 </html>

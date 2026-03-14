@@ -360,3 +360,148 @@ body.dark .copy-dropdown-menu button:hover {
 .stored-search-bar button:hover {
   background: #888;
 } 
+/* =================== صف رقم المعدة =================== */
+.number-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 8px 0;
+}
+.number-row input {
+  flex: 1;
+  margin: 0;
+}
+.btn-sm {
+  width: auto;
+  padding: 8px 14px;
+  margin: 0;
+  font-size: 13px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  color: white;
+  font-weight: bold;
+  white-space: nowrap;
+}
+.btn-blue { background: #4a90e2; }
+.btn-blue:hover { background: #357ab8; }
+.btn-red  { background: #e05555; }
+.btn-red:hover  { background: #c03030; }
+
+/* =================== checkboxes الألوان =================== */
+.color-checkboxes {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 14px;
+}
+.color-checkboxes label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 4px 0;
+  color: #1a202c;
+}
+.color-checkboxes input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  cursor: pointer;
+}
+body.dark .color-checkboxes label { color: #e2e8f0; }
+
+.export-color-checkboxes {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 0;
+}
+.export-color-checkboxes label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  background: #f0f4f8;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  padding: 6px 10px;
+  color: #1a202c;
+}
+.export-color-checkboxes label:hover { background: #e0e8f0; }
+.export-color-checkboxes input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  cursor: pointer;
+}
+body.dark .export-color-checkboxes label {
+  background: #3a4a5c;
+  border-color: #4a5568;
+  color: #e2e8f0;
+}
+body.dark .export-color-checkboxes label:hover { background: #4a5a6c; }
+
+/* =================== زر نسخ المحدد =================== */
+#copySelectedColorsBtn {
+  width: calc(100% - 28px);
+  margin: 4px 14px 10px;
+  background: #4a90e2;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 9px;
+  font-size: 14px;
+  cursor: pointer;
+  font-weight: bold;
+}
+#copySelectedColorsBtn:hover { background: #357ab8; }
+
+/* =================== تصفية المركبات المخزنة - checkboxes =================== */
+.filter-bar-checks {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.stored-filter-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1;
+}
+
+.stored-filter-checks label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 14px;
+  cursor: pointer;
+  background: #f0f4f8;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  padding: 5px 10px;
+  color: #1a202c;
+  user-select: none;
+}
+
+.stored-filter-checks label:hover { background: #e0e8f0; }
+
+.stored-filter-checks input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  cursor: pointer;
+}
+
+body.dark .stored-filter-checks label {
+  background: #3a4a5c;
+  border-color: #4a5568;
+  color: #e2e8f0;
+}
+body.dark .stored-filter-checks label:hover { background: #4a5a6c; }

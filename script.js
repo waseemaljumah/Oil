@@ -165,7 +165,7 @@ saveSilentBtn.addEventListener("click", () => saveVehicle(false));
 
 // =================== البحث ===================
 searchBtn.addEventListener("click", async () => {
-  const number = document.getElementById("searchNumber").value.trim();
+  const number = document.getElementById("number").value.trim();
   if (!number) { alert("ادخل رقم المعدة للبحث"); return; }
 
   const docSnap = await getDoc(doc(db, "vehicles", number));
@@ -221,7 +221,7 @@ searchBtn.addEventListener("click", async () => {
 
 // =================== حذف ===================
 deleteBtn.addEventListener("click", async () => {
-  const number = document.getElementById("searchNumber").value.trim();
+  const number = document.getElementById("number").value.trim();
   if (!number) { alert("ادخل رقم المعدة للحذف"); return; }
   await deleteDoc(doc(db, "vehicles", number));
   for (let type in sessionVehicles) {
@@ -239,57 +239,52 @@ async function loadVehicles() {
   querySnapshot.forEach(docItem => {
     allVehiclesData.push({ id: docItem.id, data: docItem.data() });
   });
-  renderVehicles("all");
+  renderVehicles(null, "");
 }
 
-function renderVehicles(filterColor = "all", searchTerm = "") {
+// الألوان المفلترة في المركبات المخزنة (Set مشترك)
+let storedFilterEmojis = new Set(["🟢","🔴","⚪","🔵","⚫"]);
+
+function renderVehicles(filterColors = null, searchTerm = "") {
+  if (filterColors !== null) storedFilterEmojis = filterColors instanceof Set ? filterColors : new Set(filterColors);
   vehicleList.innerHTML = "";
 
-  // شريط التصفية - قائمة منسدلة
+  // شريط التصفية - checkboxes
   const filterBar = document.createElement("div");
-  filterBar.className = "filter-bar";
+  filterBar.className = "filter-bar-checks";
   filterBar.innerHTML = `
-    <div class="filter-dropdown-wrap">
-      <button class="filter-dropdown-toggle" id="filterDropdownToggle">
-        ${filterColor === 'all'   ? '📋 الكل' :
-          filterColor === 'green' ? '🟢 الأخضر' :
-          filterColor === 'red'   ? '🔴 الأحمر' :
-          filterColor === 'white' ? '⚪ لا يوجد ممشى' :
-          filterColor === 'blue'  ? '🔵 العداد لا يعمل' :
-                                    '⚫ بدون عداد سابق'} ▾
-      </button>
-      <div class="filter-dropdown-menu" id="filterDropdownMenu">
-        <button class="filter-opt ${filterColor==='all'   ?'active':''}" data-filter="all">📋 الكل</button>
-        <button class="filter-opt ${filterColor==='green' ?'active':''}" data-filter="green">🟢 الأخضر</button>
-        <button class="filter-opt ${filterColor==='red'   ?'active':''}" data-filter="red">🔴 الأحمر</button>
-        <button class="filter-opt ${filterColor==='white' ?'active':''}" data-filter="white">⚪ لا يوجد ممشى</button>
-        <button class="filter-opt ${filterColor==='blue'  ?'active':''}" data-filter="blue">🔵 العداد لا يعمل</button>
-        <button class="filter-opt ${filterColor==='black' ?'active':''}" data-filter="black">⚫ بدون عداد سابق</button>
-      </div>
+    <div class="stored-filter-checks">
+      <label class="all-check-label"><input type="checkbox" id="filterAll" ${storedFilterEmojis.size===5?'checked':''}/> 📋 الكل</label>
+      <label><input type="checkbox" value="🟢" ${storedFilterEmojis.has("🟢")?'checked':''}/> 🟢</label>
+      <label><input type="checkbox" value="🔴" ${storedFilterEmojis.has("🔴")?'checked':''}/> 🔴</label>
+      <label><input type="checkbox" value="⚪" ${storedFilterEmojis.has("⚪")?'checked':''}/> ⚪</label>
+      <label><input type="checkbox" value="🔵" ${storedFilterEmojis.has("🔵")?'checked':''}/> 🔵</label>
+      <label><input type="checkbox" value="⚫" ${storedFilterEmojis.has("⚫")?'checked':''}/> ⚫</label>
     </div>
     <button class="copy-filtered-btn" id="copyFilteredBtn">📋 نسخ المعروض</button>
   `;
   vehicleList.appendChild(filterBar);
 
-  // فتح/إغلاق قائمة التصفية
-  const filterToggle = document.getElementById("filterDropdownToggle");
-  const filterMenu   = document.getElementById("filterDropdownMenu");
-  filterToggle.addEventListener("click", (e) => {
-    e.stopPropagation();
-    filterMenu.classList.toggle("open");
+  // منطق checkbox الكل
+  filterBar.querySelector("#filterAll").addEventListener("change", (e) => {
+    const all = e.target.checked;
+    filterBar.querySelectorAll(".stored-filter-checks input[value]").forEach(cb => cb.checked = all);
+    const term = document.getElementById("storedSearchInput")?.value.trim() || "";
+    storedFilterEmojis = all ? new Set(["🟢","🔴","⚪","🔵","⚫"]) : new Set();
+    renderVehicles(storedFilterEmojis, term);
   });
-  filterBar.querySelectorAll(".filter-opt").forEach(btn => {
-    btn.addEventListener("click", () => {
-      filterMenu.classList.remove("open");
+
+  filterBar.querySelectorAll(".stored-filter-checks input[value]").forEach(cb => {
+    cb.addEventListener("change", () => {
+      const checked = new Set([...filterBar.querySelectorAll(".stored-filter-checks input[value]:checked")].map(c=>c.value));
       const term = document.getElementById("storedSearchInput")?.value.trim() || "";
-      renderVehicles(btn.dataset.filter, term);
+      renderVehicles(checked, term);
     });
   });
 
-  const emojiMap = { green:"🟢", red:"🔴", white:"⚪", blue:"🔵", black:"⚫" };
-
   const filtered = allVehiclesData.filter(v => {
-    const colorOk = filterColor === "all" || getStatusEmoji(v.data.type, v.data.currentKm, v.data.lastKm) === emojiMap[filterColor];
+    const emoji = getStatusEmoji(v.data.type, v.data.currentKm, v.data.lastKm);
+    const colorOk = storedFilterEmojis.size === 0 || storedFilterEmojis.has(emoji);
     const searchOk = !searchTerm || v.id.includes(searchTerm);
     return colorOk && searchOk;
   });
@@ -488,14 +483,16 @@ function updateOutput() {
   outputDiv.innerText = text.trim();
 }
 
-// =================== نسخ حسب اللون ===================
-function copyByColor(filterFn) {
+
+// =================== نسخ حسب اللون (متعدد الاختيار) ===================
+function copyByColors(selectedEmojis) {
+  const emojiSet = new Set(selectedEmojis);
   const today = new Date();
   const todayFormatted = `${today.getFullYear()}/${String(today.getMonth()+1).padStart(2,"0")}/${String(today.getDate()).padStart(2,"0")}`;
   let text = `المتابعة اليومية للزيوت / تاريخ: ${todayFormatted}\n\n`;
   const sortedTypes = Object.keys(sessionVehicles).sort();
   sortedTypes.forEach(type => {
-    const filtered = sessionVehicles[type].filter(v => filterFn(getStatusEmoji(type, v.data.currentKm, v.data.lastKm)));
+    const filtered = sessionVehicles[type].filter(v => emojiSet.has(getStatusEmoji(type, v.data.currentKm, v.data.lastKm)));
     filtered.sort((a,b) => (b.data.kmSinceLastChange||0) - (a.data.kmSinceLastChange||0));
     filtered.forEach(v => {
       const dp = v.data.date ? v.data.date.split("-") : [];
@@ -511,11 +508,6 @@ function copyByColor(filterFn) {
 }
 
 copyBtn.addEventListener("click", () => { navigator.clipboard.writeText(outputDiv.innerText); alert("تم النسخ"); });
-copyGreenBtn.addEventListener("click", () => { copyByColor(e => e === "🟢"); document.getElementById("copyDropdownMenu")?.classList.remove("open"); });
-copyRedBtn.addEventListener("click",   () => { copyByColor(e => e === "🔴"); document.getElementById("copyDropdownMenu")?.classList.remove("open"); });
-copyWhiteBtn.addEventListener("click", () => { copyByColor(e => e === "⚪"); document.getElementById("copyDropdownMenu")?.classList.remove("open"); });
-copyBlueBtn.addEventListener("click",  () => { copyByColor(e => e === "🔵"); document.getElementById("copyDropdownMenu")?.classList.remove("open"); });
-copyBlackBtn.addEventListener("click", () => { copyByColor(e => e === "⚫"); document.getElementById("copyDropdownMenu")?.classList.remove("open"); });
 
 // =================== dropdown النسخ ===================
 document.getElementById("copyFilterToggle").addEventListener("click", (e) => {
@@ -523,15 +515,22 @@ document.getElementById("copyFilterToggle").addEventListener("click", (e) => {
   document.getElementById("copyDropdownMenu").classList.toggle("open");
 });
 
+document.getElementById("copySelectedColorsBtn").addEventListener("click", () => {
+  const checked = [...document.querySelectorAll("#copyDropdownMenu .color-checkboxes input:checked")].map(cb => cb.value);
+  if (!checked.length) { alert("اختر لون واحد على الأقل"); return; }
+  copyByColors(checked);
+  document.getElementById("copyDropdownMenu").classList.remove("open");
+});
+
 // =================== بحث المركبات المخزنة ===================
 document.getElementById("storedSearchInput").addEventListener("input", () => {
   const term = document.getElementById("storedSearchInput").value.trim();
-  renderVehicles("all", term);
+  renderVehicles(null, term);
 });
 
 document.getElementById("storedSearchClearBtn").addEventListener("click", () => {
   document.getElementById("storedSearchInput").value = "";
-  renderVehicles("all", "");
+  renderVehicles(null, "");
 });
 
 // =================== فتح/إغلاق قسم المركبات المخزنة ===================
@@ -573,8 +572,13 @@ function clearForm() {
 document.getElementById("exportBtn").addEventListener("click", async () => {
   const querySnapshot = await getDocs(collection(db, "vehicles"));
   const sortMode = document.getElementById("exportSortSelect").value;
-
   const colorOrder = { "🔴": 0, "🟢": 1, "🔵": 2, "⚪": 3, "⚫": 4 };
+
+  // الألوان المحددة للتصدير
+  const exportColors = new Set(
+    [...document.querySelectorAll(".export-color-checkboxes input:checked")].map(cb => cb.value)
+  );
+  if (!exportColors.size) { alert("اختر لون واحد على الأقل للتصدير"); return; }
 
   let dataArray = [];
   querySnapshot.forEach(docItem => {
@@ -584,19 +588,13 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
     const dp = d.date ? d.date.split("-") : [];
     const fd = dp.length === 3 ? `${dp[2]}/${dp[1]}/${dp[0]}` : (d.date || "");
     const emoji = getStatusEmoji(d.type, d.currentKm, d.lastKm);
-    dataArray.push({
-      type: d.type,
-      id: docItem.id,
-      currentKm: d.currentKm,
-      lastKm: d.lastKm,
-      kmDiff,
-      date: fd,
-      filter: d.filter,
-      emoji
-    });
+    if (exportColors.has(emoji)) {
+      dataArray.push({ type: d.type, id: docItem.id, currentKm: d.currentKm, lastKm: d.lastKm, kmDiff, date: fd, filter: d.filter, emoji });
+    }
   });
 
-  // ترتيب
+  if (!dataArray.length) { alert("لا توجد مركبات بالألوان المحددة"); return; }
+
   if (sortMode === "type") {
     dataArray.sort((a, b) => a.type.localeCompare(b.type, "ar") || String(a.id).localeCompare(String(b.id), undefined, { numeric: true }));
   } else if (sortMode === "numAsc") {
@@ -607,113 +605,63 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
     dataArray.sort((a, b) => (colorOrder[a.emoji] ?? 9) - (colorOrder[b.emoji] ?? 9) || a.type.localeCompare(b.type, "ar"));
   }
 
-  const today = new Date();
-  const yyyy = today.getFullYear();
-  const mm   = String(today.getMonth() + 1).padStart(2, "0");
-  const dd   = String(today.getDate()).padStart(2, "0");
+  const today   = new Date();
+  const yyyy    = today.getFullYear();
+  const mm      = String(today.getMonth() + 1).padStart(2, "0");
+  const dd      = String(today.getDate()).padStart(2, "0");
   const dateStr = `${dd}/${mm}/${yyyy}`;
 
-  // بناء مصفوفة الصفوف يدوياً
-  // صف 0: عنوان رئيسي
-  // صف 1: فارغ
-  // صف 2: رؤوس الأعمدة
-  // صف 3+: البيانات
-
-  const headers = ["#", "نوع المعدة", "رقم المعدة", "الممشى الحالي", "ممشى آخر تغيير زيت", "الممشى منذ آخر تغيير", "تاريخ آخر تغيير زيت", "حالة فلتر الزيت", "الحالة"];
-  const numCols = headers.length;
+  const headers   = ["#", "نوع المعدة", "رقم المعدة", "الممشى الحالي", "ممشى آخر تغيير زيت", "الممشى منذ آخر تغيير", "تاريخ آخر تغيير زيت", "حالة فلتر الزيت", "الحالة"];
+  const numCols   = headers.length;
+  const STATUS_CI = numCols - 1;
+  const statusColor = { "🔴": "E74C3C", "🟢": "27AE60", "🔵": "2980B9", "⚪": "D0D3D4", "⚫": "616A6B" };
 
   const aoa = [];
-  // صف العنوان
   aoa.push([`متابعة زيوت المركبات — تاريخ: ${dateStr}`, ...Array(numCols - 1).fill("")]);
-  // صف فارغ
   aoa.push(Array(numCols).fill(""));
-  // رؤوس الأعمدة
   aoa.push(headers);
-  // البيانات
   dataArray.forEach((v, i) => {
-    aoa.push([
-      i + 1,
-      v.type,
-      v.id,
-      v.currentKm,
-      v.lastKm,
-      v.kmDiff,
-      v.date,
-      v.filter,
-      v.emoji
-    ]);
+    aoa.push([i + 1, v.type, v.id, v.currentKm, v.lastKm, v.kmDiff, v.date, v.filter, ""]);
   });
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws["!cols"] = [{ wch:4 },{ wch:16 },{ wch:12 },{ wch:14 },{ wch:20 },{ wch:18 },{ wch:18 },{ wch:28 },{ wch:5 }];
+  ws["!merges"] = [{ s:{ r:0, c:0 }, e:{ r:0, c:numCols-1 } }];
+  ws["!rows"]   = [{ hpt:28 }, { hpt:6 }, { hpt:20 }];
 
-  // عرض الأعمدة
-  ws["!cols"] = [
-    { wch: 4  },  // #
-    { wch: 16 },  // نوع المعدة
-    { wch: 12 },  // رقم المعدة
-    { wch: 14 },  // الممشى الحالي
-    { wch: 20 },  // ممشى آخر تغيير
-    { wch: 18 },  // الممشى منذ آخر تغيير
-    { wch: 18 },  // تاريخ
-    { wch: 28 },  // حالة الفلتر
-    { wch: 8  },  // الحالة
-  ];
-
-  // دمج خلايا العنوان
-  ws["!merges"] = [
-    { s: { r: 0, c: 0 }, e: { r: 0, c: numCols - 1 } }
-  ];
-
-  // تطبيق الستايلات
-  const titleCell = XLSX.utils.encode_cell({ r: 0, c: 0 });
-  ws[titleCell].s = {
-    font:      { bold: true, sz: 14, color: { rgb: "FFFFFF" } },
-    fill:      { fgColor: { rgb: "1A5276" } },
-    alignment: { horizontal: "center", vertical: "center", wrapText: true },
-    border:    { bottom: { style: "medium", color: { rgb: "FFFFFF" } } }
+  ws[XLSX.utils.encode_cell({ r:0, c:0 })].s = {
+    font: { bold:true, sz:14, color:{ rgb:"FFFFFF" } },
+    fill: { fgColor:{ rgb:"1A5276" } },
+    alignment: { horizontal:"center", vertical:"center" },
   };
 
-  // ارتفاع صف العنوان
-  ws["!rows"] = [{ hpt: 28 }, { hpt: 6 }, { hpt: 20 }];
-
-  // ستايل رؤوس الأعمدة (صف 2)
+  const bW = { style:"thin", color:{ rgb:"FFFFFF" } };
   headers.forEach((_, ci) => {
-    const cell = XLSX.utils.encode_cell({ r: 2, c: ci });
-    if (!ws[cell]) ws[cell] = { v: headers[ci], t: "s" };
-    ws[cell].s = {
-      font:      { bold: true, sz: 11, color: { rgb: "FFFFFF" } },
-      fill:      { fgColor: { rgb: "2471A3" } },
-      alignment: { horizontal: "center", vertical: "center" },
-      border: {
-        top:    { style: "thin", color: { rgb: "FFFFFF" } },
-        bottom: { style: "thin", color: { rgb: "FFFFFF" } },
-        left:   { style: "thin", color: { rgb: "FFFFFF" } },
-        right:  { style: "thin", color: { rgb: "FFFFFF" } },
-      }
+    const c = XLSX.utils.encode_cell({ r:2, c:ci });
+    if (!ws[c]) ws[c] = { v:headers[ci], t:"s" };
+    ws[c].s = {
+      font: { bold:true, sz:11, color:{ rgb:"FFFFFF" } },
+      fill: { fgColor:{ rgb:"2471A3" } },
+      alignment: { horizontal:"center", vertical:"center" },
+      border: { top:bW, bottom:bW, left:bW, right:bW }
     };
   });
 
-  // ألوان الصفوف حسب الحالة
-  const rowColors = { "🔴": "FADBD8", "🟢": "D5F5E3", "🔵": "D6EAF8", "⚪": "F2F3F4", "⚫": "EAECEE" };
-  const borderThin = {
-    top:    { style: "thin", color: { rgb: "BDC3C7" } },
-    bottom: { style: "thin", color: { rgb: "BDC3C7" } },
-    left:   { style: "thin", color: { rgb: "BDC3C7" } },
-    right:  { style: "thin", color: { rgb: "BDC3C7" } },
+  const bThin = {
+    top:    { style:"thin", color:{ rgb:"BDC3C7" } },
+    bottom: { style:"thin", color:{ rgb:"BDC3C7" } },
+    left:   { style:"thin", color:{ rgb:"BDC3C7" } },
+    right:  { style:"thin", color:{ rgb:"BDC3C7" } },
   };
 
   dataArray.forEach((v, ri) => {
-    const rowIdx = ri + 3; // بعد العنوان + فارغ + رؤوس
-    const bg = rowColors[v.emoji] || "FFFFFF";
+    const rowIdx = ri + 3;
     for (let ci = 0; ci < numCols; ci++) {
-      const cell = XLSX.utils.encode_cell({ r: rowIdx, c: ci });
-      if (!ws[cell]) ws[cell] = { v: "", t: "s" };
-      ws[cell].s = {
-        fill:      { fgColor: { rgb: bg } },
-        alignment: { horizontal: "center", vertical: "center" },
-        border:    borderThin,
-        font:      { sz: 10 }
-      };
+      const c = XLSX.utils.encode_cell({ r:rowIdx, c:ci });
+      if (!ws[c]) ws[c] = { v:"", t:"s" };
+      ws[c].s = ci === STATUS_CI
+        ? { fill:{ fgColor:{ rgb: statusColor[v.emoji]||"FFFFFF" } }, alignment:{ horizontal:"center", vertical:"center" }, border:bThin }
+        : { fill:{ fgColor:{ rgb:"FFFFFF" } }, alignment:{ horizontal:"center", vertical:"center" }, border:bThin, font:{ sz:10 } };
     }
   });
 
@@ -721,5 +669,5 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
   XLSX.utils.book_append_sheet(wb, ws, "المركبات");
   XLSX.writeFile(wb, `متابعة_المركبات_${dd}-${mm}-${yyyy}.xlsx`);
 });
- 
+
 loadVehicles();
