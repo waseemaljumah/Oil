@@ -615,17 +615,18 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
   const numCols   = headers.length;
   const STATUS_CI = numCols - 1;
   const statusColor = { "🔴": "E74C3C", "🟢": "27AE60", "🔵": "2980B9", "⚪": "D0D3D4", "⚫": "616A6B" };
+  const statusText  = { "🔴": "احمر",   "🟢": "اخضر",   "🔵": "ازرق",   "⚪": "ابيض",   "⚫": "اسود"  };
 
   const aoa = [];
   aoa.push([`متابعة زيوت المركبات — تاريخ: ${dateStr}`, ...Array(numCols - 1).fill("")]);
   aoa.push(Array(numCols).fill(""));
   aoa.push(headers);
   dataArray.forEach((v, i) => {
-    aoa.push([i + 1, v.type, v.id, v.currentKm, v.lastKm, v.kmDiff, v.date, v.filter, ""]);
+    aoa.push([i + 1, v.type, v.id, v.currentKm, v.lastKm, v.kmDiff, v.date, v.filter, statusText[v.emoji] || ""]);
   });
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
-  ws["!cols"] = [{ wch:4 },{ wch:16 },{ wch:12 },{ wch:14 },{ wch:20 },{ wch:18 },{ wch:18 },{ wch:28 },{ wch:5 }];
+  ws["!cols"] = [{ wch:4 },{ wch:16 },{ wch:12 },{ wch:14 },{ wch:20 },{ wch:18 },{ wch:18 },{ wch:28 },{ wch:8 }];
   ws["!merges"] = [{ s:{ r:0, c:0 }, e:{ r:0, c:numCols-1 } }];
   ws["!rows"]   = [{ hpt:28 }, { hpt:6 }, { hpt:20 }];
 
@@ -660,7 +661,7 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
       const c = XLSX.utils.encode_cell({ r:rowIdx, c:ci });
       if (!ws[c]) ws[c] = { v:"", t:"s" };
       ws[c].s = ci === STATUS_CI
-        ? { fill:{ fgColor:{ rgb: statusColor[v.emoji]||"FFFFFF" } }, alignment:{ horizontal:"center", vertical:"center" }, border:bThin }
+        ? { fill:{ fgColor:{ rgb: statusColor[v.emoji]||"FFFFFF" } }, alignment:{ horizontal:"center", vertical:"center" }, border:bThin, font:{ bold:true, color:{ rgb: ["🔴","🟢","🔵","⚫"].includes(v.emoji) ? "FFFFFF" : "333333" } } }
         : { fill:{ fgColor:{ rgb:"FFFFFF" } }, alignment:{ horizontal:"center", vertical:"center" }, border:bThin, font:{ sz:10 } };
     }
   });
