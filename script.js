@@ -615,34 +615,47 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
   const numCols   = headers.length;
   const STATUS_CI = numCols - 1;
   const statusColor = { "🔴": "E74C3C", "🟢": "27AE60", "🔵": "2980B9", "⚪": "D0D3D4", "⚫": "616A6B" };
-  const statusText  = { "🔴": "احمر",   "🟢": "اخضر",   "🔵": "ازرق",   "⚪": "ابيض",   "⚫": "اسود"  };
 
   const aoa = [];
   aoa.push([`متابعة زيوت المركبات — تاريخ: ${dateStr}`, ...Array(numCols - 1).fill("")]);
   aoa.push(Array(numCols).fill(""));
   aoa.push(headers);
   dataArray.forEach((v, i) => {
-    aoa.push([i + 1, v.type, v.id, v.currentKm, v.lastKm, v.kmDiff, v.date, v.filter, statusText[v.emoji] || ""]);
+    aoa.push([i + 1, v.type, v.id, v.currentKm, v.lastKm, v.kmDiff, v.date, v.filter, v.emoji]);
   });
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
-  ws["!cols"] = [{ wch:4 },{ wch:16 },{ wch:12 },{ wch:14 },{ wch:20 },{ wch:18 },{ wch:18 },{ wch:28 },{ wch:8 }];
+  
+  // تحديد عرض الأعمدة تلقائياً
+  const colWidths = headers.map((h, ci) => {
+    let maxLen = h.length;
+    dataArray.forEach((v, ri) => {
+      const val = aoa[ri + 3][ci];
+      const len = String(val).length;
+      if (len > maxLen) maxLen = len;
+    });
+    return { wch: Math.max(maxLen + 2, 8) };
+  });
+  ws["!cols"] = colWidths;
+  
   ws["!merges"] = [{ s:{ r:0, c:0 }, e:{ r:0, c:numCols-1 } }];
-  ws["!rows"]   = [{ hpt:28 }, { hpt:6 }, { hpt:20 }];
+  ws["!rows"]   = [{ hpt:30 }, { hpt:6 }, { hpt:24 }];
 
+  // تنسيق الصف الأول (العنوان الرئيسي) - رصاصي فاتح + بولد + محاذاة وسط
   ws[XLSX.utils.encode_cell({ r:0, c:0 })].s = {
-    font: { bold:true, sz:14, color:{ rgb:"FFFFFF" } },
-    fill: { fgColor:{ rgb:"1A5276" } },
+    font: { bold:true, sz:14, color:{ rgb:"000000" } },
+    fill: { fgColor:{ rgb:"D0D3D4" } },
     alignment: { horizontal:"center", vertical:"center" },
   };
 
-  const bW = { style:"thin", color:{ rgb:"FFFFFF" } };
+  // تنسيق الصف الثالث (العناوين) - رصاصي فاتح + بولد + محاذاة وسط
+  const bW = { style:"thin", color:{ rgb:"95A5A6" } };
   headers.forEach((_, ci) => {
     const c = XLSX.utils.encode_cell({ r:2, c:ci });
     if (!ws[c]) ws[c] = { v:headers[ci], t:"s" };
     ws[c].s = {
-      font: { bold:true, sz:11, color:{ rgb:"FFFFFF" } },
-      fill: { fgColor:{ rgb:"2471A3" } },
+      font: { bold:true, sz:11, color:{ rgb:"000000" } },
+      fill: { fgColor:{ rgb:"D0D3D4" } },
       alignment: { horizontal:"center", vertical:"center" },
       border: { top:bW, bottom:bW, left:bW, right:bW }
     };
@@ -655,14 +668,29 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
     right:  { style:"thin", color:{ rgb:"BDC3C7" } },
   };
 
+  // تنسيق صفوف البيانات - كل النصوص في المنتصف
   dataArray.forEach((v, ri) => {
     const rowIdx = ri + 3;
     for (let ci = 0; ci < numCols; ci++) {
       const c = XLSX.utils.encode_cell({ r:rowIdx, c:ci });
       if (!ws[c]) ws[c] = { v:"", t:"s" };
-      ws[c].s = ci === STATUS_CI
-        ? { fill:{ fgColor:{ rgb: statusColor[v.emoji]||"FFFFFF" } }, alignment:{ horizontal:"center", vertical:"center" }, border:bThin, font:{ bold:true, color:{ rgb: ["🔴","🟢","🔵","⚫"].includes(v.emoji) ? "FFFFFF" : "333333" } } }
-        : { fill:{ fgColor:{ rgb:"FFFFFF" } }, alignment:{ horizontal:"center", vertical:"center" }, border:bThin, font:{ sz:10 } };
+      
+      // تلوين خلية الحالة بدلاً من النص
+      if (ci === STATUS_CI) {
+        ws[c].v = ""; // خلية فارغة
+        ws[c].s = { 
+          fill:{ fgColor:{ rgb: statusColor[v.emoji]||"FFFFFF" } }, 
+          alignment:{ horizontal:"center", vertical:"center" }, 
+          border:bThin
+        };
+      } else {
+        ws[c].s = { 
+          fill:{ fgColor:{ rgb:"FFFFFF" } }, 
+          alignment:{ horizontal:"center", vertical:"center" }, 
+          border:bThin, 
+          font:{ sz:10 } 
+        };
+      }
     }
   });
 
@@ -670,5 +698,151 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
   XLSX.utils.book_append_sheet(wb, ws, "المركبات");
   XLSX.writeFile(wb, `متابعة_المركبات_${dd}-${mm}-${yyyy}.xlsx`);
 });
+
+// =================== عرض جدول ويب تفاعلي ===================
+document.getElementById("viewTableBtn").addEventListener("click", async () => {
+  const querySnapshot = await getDocs(collection(db, "vehicles"));
+  const sortMode = document.getElementById("exportSortSelect").value;
+  const colorOrder = { "🔴": 0, "🟢": 1, "🔵": 2, "⚪": 3, "⚫": 4 };
+
+  const exportColors = new Set(
+    [...document.querySelectorAll(".export-color-checkboxes input:checked")].map(cb => cb.value)
+  );
+  if (!exportColors.size) { alert("اختر لون واحد على الأقل"); return; }
+
+  let dataArray = [];
+  querySnapshot.forEach(docItem => {
+    const d = docItem.data();
+    const cur = parseCurrentKm(d.currentKm);
+    const kmDiff = (!isNoKm(d.lastKm) && cur.type === "value") ? cur.value - Number(d.lastKm) : "-";
+    const dp = d.date ? d.date.split("-") : [];
+    const fd = dp.length === 3 ? `${dp[2]}/${dp[1]}/${dp[0]}` : (d.date || "");
+    const emoji = getStatusEmoji(d.type, d.currentKm, d.lastKm);
+    if (exportColors.has(emoji)) {
+      dataArray.push({ type: d.type, id: docItem.id, currentKm: d.currentKm, lastKm: d.lastKm, kmDiff, date: fd, filter: d.filter, emoji });
+    }
+  });
+
+  if (!dataArray.length) { alert("لا توجد مركبات بالألوان المحددة"); return; }
+
+  if (sortMode === "type") {
+    dataArray.sort((a, b) => a.type.localeCompare(b.type, "ar") || String(a.id).localeCompare(String(b.id), undefined, { numeric: true }));
+  } else if (sortMode === "numAsc") {
+    dataArray.sort((a, b) => String(a.id).localeCompare(String(b.id), undefined, { numeric: true }));
+  } else if (sortMode === "numDesc") {
+    dataArray.sort((a, b) => String(b.id).localeCompare(String(a.id), undefined, { numeric: true }));
+  } else if (sortMode === "color") {
+    dataArray.sort((a, b) => (colorOrder[a.emoji] ?? 9) - (colorOrder[b.emoji] ?? 9) || a.type.localeCompare(b.type, "ar"));
+  }
+
+  showWebTable(dataArray);
+});
+
+function showWebTable(dataArray) {
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, "0");
+  const dd = String(today.getDate()).padStart(2, "0");
+  const dateStr = `${dd}/${mm}/${yyyy}`;
+
+  const statusColor = { "🔴": "#E74C3C", "🟢": "#27AE60", "🔵": "#2980B9", "⚪": "#D0D3D4", "⚫": "#616A6B" };
+
+  let modalHTML = `
+    <div id="tableModal" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:9999; display:flex; align-items:center; justify-content:center; padding:20px;">
+      <div style="background:white; border-radius:12px; width:95%; max-width:1400px; max-height:90vh; overflow:auto; padding:30px; box-shadow:0 10px 40px rgba(0,0,0,0.3);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+          <h2 style="margin:0; color:#2c3e50; font-size:22px;">متابعة زيوت المركبات — ${dateStr}</h2>
+          <button onclick="document.getElementById('tableModal').remove()" style="background:#e74c3c; color:white; border:none; padding:8px 16px; border-radius:6px; cursor:pointer; font-size:16px; font-weight:bold;">✕ إغلاق</button>
+        </div>
+        <div style="margin-bottom:15px;">
+          <input type="text" id="tableSearchInput" placeholder="🔍 ابحث في الجدول..." style="width:100%; padding:10px; border:2px solid #ddd; border-radius:6px; font-size:14px;" />
+        </div>
+        <div style="overflow-x:auto;">
+          <table id="dataTable" style="width:100%; border-collapse:collapse; font-size:13px;">
+            <thead>
+              <tr style="background:#D0D3D4; font-weight:bold;">
+                <th style="padding:12px; text-align:center; border:1px solid #95A5A6;">#</th>
+                <th style="padding:12px; text-align:center; border:1px solid #95A5A6; cursor:pointer;" onclick="sortTable(1)">نوع المعدة ⇅</th>
+                <th style="padding:12px; text-align:center; border:1px solid #95A5A6; cursor:pointer;" onclick="sortTable(2)">رقم المعدة ⇅</th>
+                <th style="padding:12px; text-align:center; border:1px solid #95A5A6;">الممشى الحالي</th>
+                <th style="padding:12px; text-align:center; border:1px solid #95A5A6;">ممشى آخر تغيير زيت</th>
+                <th style="padding:12px; text-align:center; border:1px solid #95A5A6;">الممشى منذ آخر تغيير</th>
+                <th style="padding:12px; text-align:center; border:1px solid #95A5A6;">تاريخ آخر تغيير زيت</th>
+                <th style="padding:12px; text-align:center; border:1px solid #95A5A6;">حالة فلتر الزيت</th>
+                <th style="padding:12px; text-align:center; border:1px solid #95A5A6;">الحالة</th>
+              </tr>
+            </thead>
+            <tbody>
+  `;
+
+  dataArray.forEach((v, i) => {
+    const bgColor = statusColor[v.emoji] || "#FFFFFF";
+    modalHTML += `
+      <tr style="background:${i % 2 === 0 ? '#ffffff' : '#f8f9fa'};">
+        <td style="padding:10px; text-align:center; border:1px solid #BDC3C7;">${i + 1}</td>
+        <td style="padding:10px; text-align:center; border:1px solid #BDC3C7;">${v.type}</td>
+        <td style="padding:10px; text-align:center; border:1px solid #BDC3C7;">${v.id}</td>
+        <td style="padding:10px; text-align:center; border:1px solid #BDC3C7;">${v.currentKm}</td>
+        <td style="padding:10px; text-align:center; border:1px solid #BDC3C7;">${v.lastKm}</td>
+        <td style="padding:10px; text-align:center; border:1px solid #BDC3C7;">${v.kmDiff}</td>
+        <td style="padding:10px; text-align:center; border:1px solid #BDC3C7;">${v.date}</td>
+        <td style="padding:10px; text-align:center; border:1px solid #BDC3C7;">${v.filter}</td>
+        <td style="padding:10px; text-align:center; border:1px solid #BDC3C7; background:${bgColor};"></td>
+      </tr>
+    `;
+  });
+
+  modalHTML += `
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+  // البحث في الجدول
+  document.getElementById('tableSearchInput').addEventListener('input', function() {
+    const searchTerm = this.value.toLowerCase();
+    const rows = document.querySelectorAll('#dataTable tbody tr');
+    rows.forEach(row => {
+      const text = row.textContent.toLowerCase();
+      row.style.display = text.includes(searchTerm) ? '' : 'none';
+    });
+  });
+}
+
+// ترتيب الجدول
+window.sortTable = function(columnIndex) {
+  const table = document.getElementById('dataTable');
+  const tbody = table.querySelector('tbody');
+  const rows = Array.from(tbody.querySelectorAll('tr'));
+  
+  const isAscending = table.dataset.sortDir !== 'asc';
+  table.dataset.sortDir = isAscending ? 'asc' : 'desc';
+  
+  rows.sort((a, b) => {
+    const aText = a.cells[columnIndex].textContent.trim();
+    const bText = b.cells[columnIndex].textContent.trim();
+    
+    const aNum = parseFloat(aText);
+    const bNum = parseFloat(bText);
+    
+    if (!isNaN(aNum) && !isNaN(bNum)) {
+      return isAscending ? aNum - bNum : bNum - aNum;
+    }
+    
+    return isAscending ? aText.localeCompare(bText, 'ar') : bText.localeCompare(aText, 'ar');
+  });
+  
+  rows.forEach(row => tbody.appendChild(row));
+  
+  // إعادة ترقيم الصفوف
+  rows.forEach((row, i) => {
+    row.cells[0].textContent = i + 1;
+    row.style.background = i % 2 === 0 ? '#ffffff' : '#f8f9fa';
+  });
+};
 
 loadVehicles();
