@@ -59,6 +59,7 @@
   <select id="lastKmSelect">
     <option value="has">يوجد عداد في آخر تغيير زيت</option>
     <option value="no">لا يوجد عداد في آخر تغيير زيت في النظام</option>
+    <option value="never">لم يتم تغيير الزيت</option>
     <option value="other">أخرى</option>
   </select>
   <input type="number" id="lastKmInput" placeholder="اكتب ممشى آخر تغيير زيت" />
@@ -69,6 +70,7 @@
     <option value="تم تغييره في آخر تغيير">تم تغييره في آخر تغيير</option>
     <option value="تم تغييره في التغيير قبل الأخير">تم تغييره في التغيير قبل الأخير</option>
     <option value="لم يتم تغييره في آخر تغييرين">لم يتم تغييره في آخر تغييرين</option>
+    <option value="لم يتم تغيير فلتر الزيت سابقاً">لم يتم تغيير فلتر الزيت سابقاً</option>
     <option value="اخرى">أخرى</option>
   </select>
   <input id="filterOther" placeholder="اكتب حالة الفلتر" />
@@ -83,14 +85,15 @@
   <div class="copy-row">
     <button id="copyBtn">📋 نسخ الكل</button>
     <div class="copy-dropdown-wrap">
-      <button class="copy-dropdown-toggle" id="copyFilterToggle">🎨 نسخ حسب اللون ▾</button>
+      <div class="copy-dropdown-toggle" id="copyFilterToggle">🎨 نسخ حسب اللون ▾</button>
       <div class="copy-dropdown-menu" id="copyDropdownMenu">
         <div class="color-checkboxes">
-          <label><input type="checkbox" value="🟢" /> 🟢 الأخضر</label>
-          <label><input type="checkbox" value="🔴" /> 🔴 الأحمر</label>
-          <label><input type="checkbox" value="⚪" /> ⚪ لا يوجد ممشى</label>
-          <label><input type="checkbox" value="🔵" /> 🔵 العداد لا يعمل</label>
-          <label><input type="checkbox" value="⚫" /> ⚫ بدون عداد سابق</label>
+          <label><input type="checkbox" value="🟢" /> الزيت جديد🟢</label>
+          <label><input type="checkbox" value="🔴" /> تحتاج تغيير زيت🔴</label>
+          <label><input type="checkbox" value="🟠" /> لم يتم تغيير الزيت🟠</label>
+          <label><input type="checkbox" value="⚪" /> لا يوجد ممشى حالي⚪</label>
+          <label><input type="checkbox" value="🔵" /> العداد لا يعمل🔵</label>
+          <label><input type="checkbox" value="⚫" /> لايوجد ممشى في اخر تغيير⚫</label>
         </div>
         <button id="copySelectedColorsBtn">📋 نسخ المحدد</button>
       </div>
@@ -116,17 +119,19 @@
     <option value="type">حسب نوع المعدة</option>
     <option value="numAsc">حسب رقم المعدة — تصاعدي</option>
     <option value="numDesc">حسب رقم المعدة — تنازلي</option>
-    <option value="color">حسب اللون (🔴 🟢 🔵 ⚪ ⚫)</option>
+    <option value="color">حسب اللون (🔴 🟠 🟢 🔵 ⚪ ⚫)</option>
   </select>
   <label>تصفية الألوان للتصدير</label>
   <div class="color-checkboxes export-color-checkboxes">
-    <label><input type="checkbox" value="🟢" checked /> 🟢 الأخضر</label>
-    <label><input type="checkbox" value="🔴" checked /> 🔴 الأحمر</label>
-    <label><input type="checkbox" value="⚪" checked /> ⚪ لا يوجد ممشى</label>
-    <label><input type="checkbox" value="🔵" checked /> 🔵 العداد لا يعمل</label>
-    <label><input type="checkbox" value="⚫" checked /> ⚫ بدون عداد سابق</label>
+    <label><input type="checkbox" value="🟢" checked /> الزيت جديد🟢</label>
+    <label><input type="checkbox" value="🔴" checked /> تحتاج تغيير زيت🔴</label>
+    <label><input type="checkbox" value="🟠" checked /> لايوجد تغيير زيت🟠</label>
+    <label><input type="checkbox" value="⚪" checked /> لايوجد ممشى حالي⚪</label>
+    <label><input type="checkbox" value="🔵" checked /> العداد لا يعمل🔵</label>
+    <label><input type="checkbox" value="⚫" checked /> لايوجد ممشى في اخر تغيير⚫</label>
   </div>
-  <button id="exportBtn">تصدير إلى Excel</button>
+  <button id="exportBtn">📊 تصدير إلى Excel</button>
+  <button id="viewTableBtn" style="background:#27ae60;margin-top:10px;">🌐 عرض في صفحة ويب</button>
 </div>
 
 <script>

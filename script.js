@@ -40,6 +40,7 @@ const lastKmOther     = document.getElementById("lastKmOther");
 const NO_KM_CURRENT  = "لا يوجد ممشى حالي";
 const BROKEN_CURRENT = "العداد لا يعمل";
 const NO_KM_LAST     = "لا يوجد عداد في آخر تغيير زيت في النظام";
+const NEVER_CHANGED  = "لم يتم تغيير الزيت";
 
 // =================== إظهار / إخفاء الحقول ===================
 typeSelect.addEventListener("change", () => {
@@ -83,26 +84,47 @@ function parseCurrentKm(currentKmRaw) {
 }
 
 function isNoKm(lastKm) {
-  return !lastKm || lastKm === NO_KM_LAST || isNaN(Number(lastKm));
+  return !lastKm || lastKm === NO_KM_LAST || lastKm === NEVER_CHANGED || isNaN(Number(lastKm));
 }
 
 // =================== حساب العلامة اللونية ===================
 function getStatusEmoji(type, currentKmRaw, lastKm) {
+  const emojis = [];
   const cur = parseCurrentKm(currentKmRaw);
 
-  if (cur.type === "broken") return "🔵";
-  if (cur.type === "none")   return "⚪";
-  if (isNoKm(lastKm))        return "⚫";
+  // اللون الأزرق للعداد المعطل
+  if (cur.type === "broken") emojis.push("🔵");
+  
+  // اللون الأبيض لعدم وجود ممشى حالي
+  if (cur.type === "none") emojis.push("⚪");
+  
+  // اللون البرتقالي لعدم تغيير الزيت
+  if (lastKm === NEVER_CHANGED) emojis.push("🟠");
+  
+  // اللون الأسود لعدم وجود عداد سابق (ولكن ليس "لم يتم تغيير الزيت")
+  if (isNoKm(lastKm) && lastKm !== NEVER_CHANGED) emojis.push("⚫");
 
-  const kmDiff = cur.value - Number(lastKm);
-  const volvoTypes = ["لوبد فولفو", "قلاب فولفو", "وايت فولفو", "فولفو"];
-  const heavyTypes = ["قريدر", "شيول", "بوكلين", "بلدوزر", "بوبكات", "مدحلة"];
+  // حساب الحالة بناءً على الممشى (أحمر أو أخضر) - فقط إذا كان هناك قيمة رقمية
+  if (cur.type === "value" && !isNoKm(lastKm)) {
+    const kmDiff = cur.value - Number(lastKm);
+    const volvoTypes = ["لوبد فولفو", "قلاب فولفو", "وايت فولفو", "فولفو"];
+    const heavyTypes = ["قريدر", "شيول", "بوكلين", "بلدوزر", "بوبكات", "مدحلة"];
 
-  if (volvoTypes.includes(type))    return kmDiff >= 5500 ? "🔴" : "🟢";
-  if (type === "قلاب مرسيدس")       return kmDiff >= 9500 ? "🔴" : "🟢";
-  if (type === "دينا")               return kmDiff >= 4500 ? "🔴" : "🟢";
-  if (heavyTypes.includes(type))    return kmDiff >= 250  ? "🔴" : "🟢";
-  return "🟢";
+    if (volvoTypes.includes(type)) {
+      emojis.push(kmDiff >= 5500 ? "🔴" : "🟢");
+    } else if (type === "قلاب مرسيدس") {
+      emojis.push(kmDiff >= 9500 ? "🔴" : "🟢");
+    } else if (type === "دينا") {
+      emojis.push(kmDiff >= 4500 ? "🔴" : "🟢");
+    } else if (heavyTypes.includes(type)) {
+      emojis.push(kmDiff >= 250 ? "🔴" : "🟢");
+    } else {
+      emojis.push("🟢");
+    }
+  }
+
+  // إذا لم يكن هناك أي ألوان، نرجع أخضر افتراضي
+  return emojis.length > 0 ? emojis : ["🟢"];
 }
 
 // =================== دالة الحفظ المشتركة ===================
@@ -123,6 +145,7 @@ async function saveVehicle(addToSession) {
   let lastKmStored;
   const lkSel = lastKmSelect.value;
   if (lkSel === "no")          lastKmStored = NO_KM_LAST;
+  else if (lkSel === "never")  lastKmStored = NEVER_CHANGED;
   else if (lkSel === "other")  lastKmStored = lastKmOther.value || NO_KM_LAST;
   else                         lastKmStored = Number(lastKmInput.value) || 0;
 
@@ -178,7 +201,7 @@ searchBtn.addEventListener("click", async () => {
     typeOther.value  = typeSelect.value === "اخرى" ? data.type : "";
     typeOther.style.display = typeSelect.value === "اخرى" ? "block" : "none";
 
-    const knownFilters = ["تم تغييره في آخر تغيير","تم تغييره في التغيير قبل الأخير","لم يتم تغييره في آخر تغييرين"];
+    const knownFilters = ["تم تغييره في آخر تغيير","تم تغييره في التغيير قبل الأخير","لم يتم تغييره في آخر تغييرين","لم يتم تغيير فلتر الزيت سابقاً"];
     filterSelect.value = knownFilters.includes(data.filter) ? data.filter : "اخرى";
     filterOther.value  = filterSelect.value === "اخرى" ? data.filter : "";
     filterOther.style.display = filterSelect.value === "اخرى" ? "block" : "none";
@@ -199,6 +222,10 @@ searchBtn.addEventListener("click", async () => {
 
     if (data.lastKm === NO_KM_LAST) {
       lastKmSelect.value        = "no";
+      lastKmInput.style.display = "none";
+      lastKmOther.style.display = "none";
+    } else if (data.lastKm === NEVER_CHANGED) {
+      lastKmSelect.value        = "never";
       lastKmInput.style.display = "none";
       lastKmOther.style.display = "none";
     } else if (!isNaN(Number(data.lastKm)) && data.lastKm !== "") {
@@ -243,7 +270,7 @@ async function loadVehicles() {
 }
 
 // الألوان المفلترة في المركبات المخزنة (Set مشترك)
-let storedFilterEmojis = new Set(["🟢","🔴","⚪","🔵","⚫"]);
+let storedFilterEmojis = new Set(["🟢","🔴","🟠","⚪","🔵","⚫"]);
 
 function renderVehicles(filterColors = null, searchTerm = "") {
   if (filterColors !== null) storedFilterEmojis = filterColors instanceof Set ? filterColors : new Set(filterColors);
@@ -254,12 +281,13 @@ function renderVehicles(filterColors = null, searchTerm = "") {
   filterBar.className = "filter-bar-checks";
   filterBar.innerHTML = `
     <div class="stored-filter-checks">
-      <label class="all-check-label"><input type="checkbox" id="filterAll" ${storedFilterEmojis.size===5?'checked':''}/> 📋 الكل</label>
-      <label><input type="checkbox" value="🟢" ${storedFilterEmojis.has("🟢")?'checked':''}/> 🟢</label>
-      <label><input type="checkbox" value="🔴" ${storedFilterEmojis.has("🔴")?'checked':''}/> 🔴</label>
-      <label><input type="checkbox" value="⚪" ${storedFilterEmojis.has("⚪")?'checked':''}/> ⚪</label>
-      <label><input type="checkbox" value="🔵" ${storedFilterEmojis.has("🔵")?'checked':''}/> 🔵</label>
-      <label><input type="checkbox" value="⚫" ${storedFilterEmojis.has("⚫")?'checked':''}/> ⚫</label>
+      <label class="all-check-label"><input type="checkbox" id="filterAll" ${storedFilterEmojis.size===6?'checked':''}/> 📋 الكل</label>
+      <label><input type="checkbox" value="🟢" ${storedFilterEmojis.has("🟢")?'checked':''}/> الزيت جديد🟢</label>
+      <label><input type="checkbox" value="🔴" ${storedFilterEmojis.has("🔴")?'checked':''}/> تحتاج تغيير زيت🔴</label>
+      <label><input type="checkbox" value="🟠" ${storedFilterEmojis.has("🟠")?'checked':''}/> لايوجد تغيير زيت🟠</label>
+      <label><input type="checkbox" value="⚪" ${storedFilterEmojis.has("⚪")?'checked':''}/> لايوجد ممشى حالي⚪</label>
+      <label><input type="checkbox" value="🔵" ${storedFilterEmojis.has("🔵")?'checked':''}/> العداد لايعمل🔵</label>
+      <label><input type="checkbox" value="⚫" ${storedFilterEmojis.has("⚫")?'checked':''}/> لايوجد ممشى في اخر تغيير⚫</label>
     </div>
     <button class="copy-filtered-btn" id="copyFilteredBtn">📋 نسخ المعروض</button>
   `;
@@ -270,7 +298,7 @@ function renderVehicles(filterColors = null, searchTerm = "") {
     const all = e.target.checked;
     filterBar.querySelectorAll(".stored-filter-checks input[value]").forEach(cb => cb.checked = all);
     const term = document.getElementById("storedSearchInput")?.value.trim() || "";
-    storedFilterEmojis = all ? new Set(["🟢","🔴","⚪","🔵","⚫"]) : new Set();
+    storedFilterEmojis = all ? new Set(["🟢","🔴","🟠","⚪","🔵","⚫"]) : new Set();
     renderVehicles(storedFilterEmojis, term);
   });
 
@@ -283,8 +311,9 @@ function renderVehicles(filterColors = null, searchTerm = "") {
   });
 
   const filtered = allVehiclesData.filter(v => {
-    const emoji = getStatusEmoji(v.data.type, v.data.currentKm, v.data.lastKm);
-    const colorOk = storedFilterEmojis.size === 0 || storedFilterEmojis.has(emoji);
+    const emojis = getStatusEmoji(v.data.type, v.data.currentKm, v.data.lastKm);
+    // المعدة تظهر إذا كان أي من ألوانها في الفلتر
+    const colorOk = storedFilterEmojis.size === 0 || emojis.some(e => storedFilterEmojis.has(e));
     const searchOk = !searchTerm || v.id.includes(searchTerm);
     return colorOk && searchOk;
   });
@@ -301,8 +330,11 @@ function renderVehicles(filterColors = null, searchTerm = "") {
     grouped[type].sort((a, b) => (b.data.kmSinceLastChange||0) - (a.data.kmSinceLastChange||0));
 
     // عداد الألوان في المجموعة
-    const counts = { "🟢":0, "🔴":0, "🔵":0, "⚪":0, "⚫":0 };
-    grouped[type].forEach(v => { const e = getStatusEmoji(v.data.type, v.data.currentKm, v.data.lastKm); if (counts[e] !== undefined) counts[e]++; });
+    const counts = { "🟢":0, "🔴":0, "🟠":0, "🔵":0, "⚪":0, "⚫":0 };
+    grouped[type].forEach(v => { 
+      const emojis = getStatusEmoji(v.data.type, v.data.currentKm, v.data.lastKm);
+      emojis.forEach(e => { if (counts[e] !== undefined) counts[e]++; });
+    });
     const summary = Object.entries(counts).filter(([,n])=>n>0).map(([e,n])=>`${e}${n}`).join(" ");
 
     const groupHeader = document.createElement("div");
@@ -322,7 +354,8 @@ function renderVehicles(filterColors = null, searchTerm = "") {
     groupBody.style.display = "none";
 
     grouped[type].forEach(v => {
-      const emoji = getStatusEmoji(v.data.type, v.data.currentKm, v.data.lastKm);
+      const emojis = getStatusEmoji(v.data.type, v.data.currentKm, v.data.lastKm);
+      const emojiDisplay = emojis.join(" ");
       const kmDisplay = (v.data.currentKm === NO_KM_CURRENT || v.data.currentKm === BROKEN_CURRENT || isNoKm(v.data.lastKm))
         ? "-" : (v.data.kmSinceLastChange || 0);
 
@@ -330,7 +363,7 @@ function renderVehicles(filterColors = null, searchTerm = "") {
       div.className = "vehicle-item";
       div.innerHTML = `
         <div class="item-row">
-          <span><strong>رقم المعدة:</strong> ${v.id} ${emoji} &nbsp;|&nbsp; <strong>الممشى منذ آخر تغيير:</strong> ${kmDisplay}</span>
+          <span><strong>رقم المعدة:</strong> ${v.id} ${emojiDisplay} &nbsp;|&nbsp; <strong>الممشى منذ آخر تغيير:</strong> ${kmDisplay}</span>
           <div class="item-btns">
             <button class="btn-view" data-id="${v.id}">👁 عرض</button>
             <button class="btn-delete" data-id="${v.id}">🗑 حذف</button>
@@ -404,7 +437,7 @@ function renderVehicles(filterColors = null, searchTerm = "") {
       typeOther.value  = typeSelect.value === "اخرى" ? data.type : "";
       typeOther.style.display = typeSelect.value === "اخرى" ? "block" : "none";
 
-      const knownFilters = ["تم تغييره في آخر تغيير","تم تغييره في التغيير قبل الأخير","لم يتم تغييره في آخر تغييرين"];
+      const knownFilters = ["تم تغييره في آخر تغيير","تم تغييره في التغيير قبل الأخير","لم يتم تغييره في آخر تغييرين","لم يتم تغيير فلتر الزيت سابقاً"];
       filterSelect.value = knownFilters.includes(data.filter) ? data.filter : "اخرى";
       filterOther.value  = filterSelect.value === "اخرى" ? data.filter : "";
       filterOther.style.display = filterSelect.value === "اخرى" ? "block" : "none";
@@ -425,6 +458,10 @@ function renderVehicles(filterColors = null, searchTerm = "") {
 
       if (data.lastKm === NO_KM_LAST) {
         lastKmSelect.value        = "no";
+        lastKmInput.style.display = "none";
+        lastKmOther.style.display = "none";
+      } else if (data.lastKm === NEVER_CHANGED) {
+        lastKmSelect.value        = "never";
         lastKmInput.style.display = "none";
         lastKmOther.style.display = "none";
       } else if (!isNaN(Number(data.lastKm)) && data.lastKm !== "") {
@@ -454,10 +491,11 @@ function buildReportText(sortedTypes, grouped) {
     grouped[type].forEach(v => {
       const dp = v.data.date ? v.data.date.split("-") : [];
       const fd = dp.length === 3 ? `${dp[0]}/${dp[1]}/${dp[2]}` : v.data.date;
-      const emoji = getStatusEmoji(type, v.data.currentKm, v.data.lastKm);
+      const emojis = getStatusEmoji(type, v.data.currentKm, v.data.lastKm);
+      const emojiDisplay = emojis.join(" ");
       const kmDisplay = (v.data.currentKm === NO_KM_CURRENT || v.data.currentKm === BROKEN_CURRENT || isNoKm(v.data.lastKm))
         ? "-" : (v.data.kmSinceLastChange || 0);
-      text += `نوع المعدة: ${type}\nرقم المعدة: ${v.id} ${emoji}\nالممشى الحالي: ${v.data.currentKm}\nممشى آخر تغيير زيت: ${v.data.lastKm}\nالممشى منذ آخر تغيير: ${kmDisplay}\nتاريخ آخر تغيير زيت: ${fd}\nحالة فلتر الزيت: ${v.data.filter}\n----------------------\n`;
+      text += `نوع المعدة: ${type}\nرقم المعدة: ${v.id} ${emojiDisplay}\nالممشى الحالي: ${v.data.currentKm}\nممشى آخر تغيير زيت: ${v.data.lastKm}\nالممشى منذ آخر تغيير: ${kmDisplay}\nتاريخ آخر تغيير زيت: ${fd}\nحالة فلتر الزيت: ${v.data.filter}\n----------------------\n`;
     });
   });
   return text;
@@ -474,10 +512,11 @@ function updateOutput() {
     sessionVehicles[type].forEach(v => {
       const dp = v.data.date ? v.data.date.split("-") : [];
       const fd = dp.length === 3 ? `${dp[0]}/${dp[1]}/${dp[2]}` : v.data.date;
-      const emoji = getStatusEmoji(type, v.data.currentKm, v.data.lastKm);
+      const emojis = getStatusEmoji(type, v.data.currentKm, v.data.lastKm);
+      const emojiDisplay = emojis.join(" ");
       const kmDisplay = (v.data.currentKm === NO_KM_CURRENT || v.data.currentKm === BROKEN_CURRENT || isNoKm(v.data.lastKm))
         ? "-" : (v.data.kmSinceLastChange || 0);
-      text += `نوع المعدة: ${type}\nرقم المعدة: ${v.number} ${emoji}\nالممشى الحالي: ${v.data.currentKm}\nممشى آخر تغيير زيت: ${v.data.lastKm}\nالممشى منذ آخر تغيير: ${kmDisplay}\nتاريخ آخر تغيير زيت: ${fd}\nحالة فلتر الزيت: ${v.data.filter}\n----------------------\n`;
+      text += `نوع المعدة: ${type}\nرقم المعدة: ${v.number} ${emojiDisplay}\nالممشى الحالي: ${v.data.currentKm}\nممشى آخر تغيير زيت: ${v.data.lastKm}\nالممشى منذ آخر تغيير: ${kmDisplay}\nتاريخ آخر تغيير زيت: ${fd}\nحالة فلتر الزيت: ${v.data.filter}\n----------------------\n`;
     });
   });
   outputDiv.innerText = text.trim();
@@ -492,15 +531,19 @@ function copyByColors(selectedEmojis) {
   let text = `المتابعة اليومية للزيوت / تاريخ: ${todayFormatted}\n\n`;
   const sortedTypes = Object.keys(sessionVehicles).sort();
   sortedTypes.forEach(type => {
-    const filtered = sessionVehicles[type].filter(v => emojiSet.has(getStatusEmoji(type, v.data.currentKm, v.data.lastKm)));
+    const filtered = sessionVehicles[type].filter(v => {
+      const emojis = getStatusEmoji(type, v.data.currentKm, v.data.lastKm);
+      return emojis.some(e => emojiSet.has(e));
+    });
     filtered.sort((a,b) => (b.data.kmSinceLastChange||0) - (a.data.kmSinceLastChange||0));
     filtered.forEach(v => {
       const dp = v.data.date ? v.data.date.split("-") : [];
       const fd = dp.length === 3 ? `${dp[0]}/${dp[1]}/${dp[2]}` : v.data.date;
-      const emoji = getStatusEmoji(type, v.data.currentKm, v.data.lastKm);
+      const emojis = getStatusEmoji(type, v.data.currentKm, v.data.lastKm);
+      const emojiDisplay = emojis.join(" ");
       const kmDisplay = (v.data.currentKm === NO_KM_CURRENT || v.data.currentKm === BROKEN_CURRENT || isNoKm(v.data.lastKm))
         ? "-" : (v.data.kmSinceLastChange || 0);
-      text += `نوع المعدة: ${type}\nرقم المعدة: ${v.number} ${emoji}\nالممشى الحالي: ${v.data.currentKm}\nممشى آخر تغيير زيت: ${v.data.lastKm}\nالممشى منذ آخر تغيير: ${kmDisplay}\nتاريخ آخر تغيير زيت: ${fd}\nحالة فلتر الزيت: ${v.data.filter}\n----------------------\n`;
+      text += `نوع المعدة: ${type}\nرقم المعدة: ${v.number} ${emojiDisplay}\nالممشى الحالي: ${v.data.currentKm}\nممشى آخر تغيير زيت: ${v.data.lastKm}\nالممشى منذ آخر تغيير: ${kmDisplay}\nتاريخ آخر تغيير زيت: ${fd}\nحالة فلتر الزيت: ${v.data.filter}\n----------------------\n`;
     });
   });
   navigator.clipboard.writeText(text.trim());
@@ -572,7 +615,7 @@ function clearForm() {
 document.getElementById("exportBtn").addEventListener("click", async () => {
   const querySnapshot = await getDocs(collection(db, "vehicles"));
   const sortMode = document.getElementById("exportSortSelect").value;
-  const colorOrder = { "🔴": 0, "🟢": 1, "🔵": 2, "⚪": 3, "⚫": 4 };
+  const colorOrder = { "🔴": 0, "🟠": 1, "🟢": 2, "🔵": 3, "⚪": 4, "⚫": 5 };
 
   // الألوان المحددة للتصدير
   const exportColors = new Set(
@@ -587,9 +630,22 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
     const kmDiff = (!isNoKm(d.lastKm) && cur.type === "value") ? cur.value - Number(d.lastKm) : "-";
     const dp = d.date ? d.date.split("-") : [];
     const fd = dp.length === 3 ? `${dp[2]}/${dp[1]}/${dp[0]}` : (d.date || "");
-    const emoji = getStatusEmoji(d.type, d.currentKm, d.lastKm);
-    if (exportColors.has(emoji)) {
-      dataArray.push({ type: d.type, id: docItem.id, currentKm: d.currentKm, lastKm: d.lastKm, kmDiff, date: fd, filter: d.filter, emoji });
+    const emojis = getStatusEmoji(d.type, d.currentKm, d.lastKm);
+    
+    // المعدة تظهر إذا كان أي من ألوانها في الفلتر
+    const hasMatchingColor = emojis.some(e => exportColors.has(e));
+    if (hasMatchingColor) {
+      dataArray.push({ 
+        type: d.type, 
+        id: docItem.id, 
+        currentKm: d.currentKm, 
+        lastKm: d.lastKm, 
+        kmDiff, 
+        date: fd, 
+        filter: d.filter, 
+        emojis: emojis,
+        primaryEmoji: emojis[0] // للترتيب
+      });
     }
   });
 
@@ -602,7 +658,7 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
   } else if (sortMode === "numDesc") {
     dataArray.sort((a, b) => String(b.id).localeCompare(String(a.id), undefined, { numeric: true }));
   } else if (sortMode === "color") {
-    dataArray.sort((a, b) => (colorOrder[a.emoji] ?? 9) - (colorOrder[b.emoji] ?? 9) || a.type.localeCompare(b.type, "ar"));
+    dataArray.sort((a, b) => (colorOrder[a.primaryEmoji] ?? 9) - (colorOrder[b.primaryEmoji] ?? 9) || a.type.localeCompare(b.type, "ar"));
   }
 
   const today   = new Date();
@@ -614,19 +670,20 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
   const headers   = ["#", "نوع المعدة", "رقم المعدة", "الممشى الحالي", "ممشى آخر تغيير زيت", "الممشى منذ آخر تغيير", "تاريخ آخر تغيير زيت", "حالة فلتر الزيت", "الحالة"];
   const numCols   = headers.length;
   const STATUS_CI = numCols - 1;
-  const statusColor = { "🔴": "E74C3C", "🟢": "27AE60", "🔵": "2980B9", "⚪": "D0D3D4", "⚫": "616A6B" };
-  const statusText  = { "🔴": "احمر",   "🟢": "اخضر",   "🔵": "ازرق",   "⚪": "ابيض",   "⚫": "اسود"  };
+  const statusColor = { "🔴": "E74C3C", "🟠": "E67E22", "🟢": "27AE60", "🔵": "2980B9", "⚪": "D0D3D4", "⚫": "616A6B" };
+  const statusText  = { "🔴": "احمر", "🟠": "برتقالي", "🟢": "اخضر", "🔵": "ازرق", "⚪": "ابيض", "⚫": "اسود" };
 
   const aoa = [];
   aoa.push([`متابعة زيوت المركبات — تاريخ: ${dateStr}`, ...Array(numCols - 1).fill("")]);
   aoa.push(Array(numCols).fill(""));
   aoa.push(headers);
   dataArray.forEach((v, i) => {
-    aoa.push([i + 1, v.type, v.id, v.currentKm, v.lastKm, v.kmDiff, v.date, v.filter, statusText[v.emoji] || ""]);
+    const statusDisplay = v.emojis.map(e => statusText[e] || "").join(" + ");
+    aoa.push([i + 1, v.type, v.id, v.currentKm, v.lastKm, v.kmDiff, v.date, v.filter, statusDisplay]);
   });
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
-  ws["!cols"] = [{ wch:4 },{ wch:16 },{ wch:12 },{ wch:14 },{ wch:30 },{ wch:18 },{ wch:18 },{ wch:40 },{ wch:8 }];
+  ws["!cols"] = [{ wch:4 },{ wch:16 },{ wch:12 },{ wch:14 },{ wch:30 },{ wch:18 },{ wch:18 },{ wch:40 },{ wch:12 }];
   ws["!merges"] = [{ s:{ r:0, c:0 }, e:{ r:0, c:numCols-1 } }];
   ws["!rows"]   = [{ hpt:28 }, { hpt:6 }, { hpt:20 }];
 
@@ -657,11 +714,15 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
 
   dataArray.forEach((v, ri) => {
     const rowIdx = ri + 3;
+    // لون الخلية بناءً على اللون الأساسي
+    const cellColor = statusColor[v.primaryEmoji] || "FFFFFF";
+    const isDark = ["🔴","🟠","🟢","🔵","⚫"].includes(v.primaryEmoji);
+    
     for (let ci = 0; ci < numCols; ci++) {
       const c = XLSX.utils.encode_cell({ r:rowIdx, c:ci });
       if (!ws[c]) ws[c] = { v:"", t:"s" };
       ws[c].s = ci === STATUS_CI
-        ? { fill:{ fgColor:{ rgb: statusColor[v.emoji]||"FFFFFF" } }, alignment:{ horizontal:"center", vertical:"center" }, border:bThin, font:{ bold:true, color:{ rgb: ["🔴","🟢","🔵","⚫"].includes(v.emoji) ? "FFFFFF" : "333333" } } }
+        ? { fill:{ fgColor:{ rgb: cellColor } }, alignment:{ horizontal:"center", vertical:"center" }, border:bThin, font:{ bold:true, color:{ rgb: isDark ? "FFFFFF" : "333333" } } }
         : { fill:{ fgColor:{ rgb:"FFFFFF" } }, alignment:{ horizontal:"center", vertical:"center" }, border:bThin, font:{ sz:10 } };
     }
   });
@@ -669,6 +730,60 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "المركبات");
   XLSX.writeFile(wb, `متابعة_المركبات_${dd}-${mm}-${yyyy}.xlsx`);
+});
+
+// =================== عرض في صفحة ويب ===================
+document.getElementById("viewTableBtn").addEventListener("click", async () => {
+  const querySnapshot = await getDocs(collection(db, "vehicles"));
+  const sortMode = document.getElementById("exportSortSelect").value;
+  const colorOrder = { "🔴": 0, "🟠": 1, "🟢": 2, "🔵": 3, "⚪": 4, "⚫": 5 };
+
+  const exportColors = new Set(
+    [...document.querySelectorAll(".export-color-checkboxes input:checked")].map(cb => cb.value)
+  );
+  if (!exportColors.size) { alert("اختر لون واحد على الأقل للعرض"); return; }
+
+  let dataArray = [];
+  querySnapshot.forEach(docItem => {
+    const d = docItem.data();
+    const cur = parseCurrentKm(d.currentKm);
+    const kmDiff = (!isNoKm(d.lastKm) && cur.type === "value") ? cur.value - Number(d.lastKm) : "-";
+    const dp = d.date ? d.date.split("-") : [];
+    const fd = dp.length === 3 ? `${dp[2]}/${dp[1]}/${dp[0]}` : (d.date || "");
+    const emojis = getStatusEmoji(d.type, d.currentKm, d.lastKm);
+    
+    const hasMatchingColor = emojis.some(e => exportColors.has(e));
+    if (hasMatchingColor) {
+      dataArray.push({ 
+        type: d.type, 
+        id: docItem.id, 
+        currentKm: d.currentKm, 
+        lastKm: d.lastKm, 
+        kmDiff, 
+        date: fd, 
+        filter: d.filter, 
+        emojis: emojis
+      });
+    }
+  });
+
+  if (!dataArray.length) { alert("لا توجد مركبات بالألوان المحددة"); return; }
+
+  if (sortMode === "type") {
+    dataArray.sort((a, b) => a.type.localeCompare(b.type, "ar") || String(a.id).localeCompare(String(b.id), undefined, { numeric: true }));
+  } else if (sortMode === "numAsc") {
+    dataArray.sort((a, b) => String(a.id).localeCompare(String(b.id), undefined, { numeric: true }));
+  } else if (sortMode === "numDesc") {
+    dataArray.sort((a, b) => String(b.id).localeCompare(String(a.id), undefined, { numeric: true }));
+  } else if (sortMode === "color") {
+    dataArray.sort((a, b) => (colorOrder[a.emojis[0]] ?? 9) - (colorOrder[b.emojis[0]] ?? 9) || a.type.localeCompare(b.type, "ar"));
+  }
+
+  // حفظ البيانات في localStorage للصفحة الجديدة
+  localStorage.setItem('tableViewData', JSON.stringify(dataArray));
+  
+  // فتح صفحة جديدة
+  window.open('table-view.html', '_blank');
 });
 
 loadVehicles();

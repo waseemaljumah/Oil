@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>عرض البيانات - نظام متابعة تغيير الزيت</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 20px;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 15px;
+      padding: 30px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    }
+
+    h1 {
+      text-align: center;
+      color: #2c3e50;
+      margin-bottom: 10px;
+      font-size: 28px;
+    }
+
+    .date-display {
+      text-align: center;
+      color: #7f8c8d;
+      margin-bottom: 20px;
+      font-size: 14px;
+    }
+
+    .controls {
+      margin-bottom: 20px;
+      display: flex;
+      gap: 15px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .search-box {
+      flex: 1;
+      min-width: 250px;
+    }
+
+    .search-box input {
+      width: 100%;
+      padding: 10px 15px;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: border-color 0.3s;
+    }
+
+    .search-box input:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    .filter-colors {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .filter-colors label {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      cursor: pointer;
+      padding: 6px 12px;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      transition: all 0.3s;
+      font-size: 14px;
+    }
+
+    .filter-colors label:hover {
+      border-color: #667eea;
+      background: #f8f9ff;
+    }
+
+    .filter-colors input[type="checkbox"] {
+      cursor: pointer;
+    }
+
+    .table-wrapper {
+      overflow-x: auto;
+      margin-top: 20px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    thead {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+
+    th {
+      padding: 15px 10px;
+      text-align: center;
+      font-weight: bold;
+      font-size: 14px;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.3s;
+    }
+
+    th:hover {
+      background: rgba(255,255,255,0.1);
+    }
+
+    th.sortable::after {
+      content: ' ⇅';
+      opacity: 0.5;
+      font-size: 12px;
+    }
+
+    th.sorted-asc::after {
+      content: ' ▲';
+      opacity: 1;
+    }
+
+    th.sorted-desc::after {
+      content: ' ▼';
+      opacity: 1;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid #ecf0f1;
+      transition: background 0.2s;
+    }
+
+    tbody tr:hover {
+      background: #f8f9ff;
+    }
+
+    tbody tr:nth-child(even) {
+      background: #f9fafb;
+    }
+
+    tbody tr:nth-child(even):hover {
+      background: #f0f2ff;
+    }
+
+    td {
+      padding: 12px 10px;
+      text-align: center;
+      font-size: 13px;
+      color: #2c3e50;
+    }
+
+    .status-cell {
+      font-size: 16px;
+      font-weight: bold;
+    }
+
+    .no-data {
+      text-align: center;
+      padding: 40px;
+      color: #7f8c8d;
+      font-size: 16px;
+    }
+
+    .back-btn {
+      display: inline-block;
+      padding: 10px 20px;
+      background: #667eea;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      text-decoration: none;
+      transition: background 0.3s;
+      margin-bottom: 15px;
+    }
+
+    .back-btn:hover {
+      background: #5568d3;
+    }
+
+    .stats {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .stat-card {
+      flex: 1;
+      min-width: 120px;
+      padding: 15px;
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      border-radius: 10px;
+      text-align: center;
+      color: white;
+    }
+
+    .stat-card .number {
+      font-size: 24px;
+      font-weight: bold;
+    }
+
+    .stat-card .label {
+      font-size: 12px;
+      opacity: 0.9;
+      margin-top: 5px;
+    }
+
+    @media (max-width: 768px) {
+      .container {
+        padding: 15px;
+      }
+
+      h1 {
+        font-size: 22px;
+      }
+
+      .controls {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .search-box {
+        width: 100%;
+      }
+
+      table {
+        font-size: 12px;
+      }
+
+      th, td {
+        padding: 8px 5px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <a href="index.html" class="back-btn">← العودة للصفحة الرئيسية</a>
+    
+    <h1>📊 عرض بيانات المركبات</h1>
+    <div class="date-display" id="dateDisplay"></div>
+
+    <div class="stats" id="stats"></div>
+
+    <div class="controls">
+      <div class="search-box">
+        <input type="text" id="searchInput" placeholder="🔍 ابحث برقم المعدة، نوع المعدة...">
+      </div>
+      <div class="filter-colors">
+        <span style="font-weight:bold;">تصفية:</span>
+        <label><input type="checkbox" value="🟢" checked> 🟢 أخضر</label>
+        <label><input type="checkbox" value="🔴" checked> 🔴 أحمر</label>
+        <label><input type="checkbox" value="🟠" checked> 🟠 برتقالي</label>
+        <label><input type="checkbox" value="⚪" checked> ⚪ أبيض</label>
+        <label><input type="checkbox" value="🔵" checked> 🔵 أزرق</label>
+        <label><input type="checkbox" value="⚫" checked> ⚫ أسود</label>
+      </div>
+    </div>
+
+    <div class="table-wrapper">
+      <table id="dataTable">
+        <thead>
+          <tr>
+            <th class="sortable" data-column="index">#</th>
+            <th class="sortable" data-column="type">نوع المعدة</th>
+            <th class="sortable" data-column="id">رقم المعدة</th>
+            <th class="sortable" data-column="currentKm">الممشى الحالي</th>
+            <th class="sortable" data-column="lastKm">ممشى آخر تغيير زيت</th>
+            <th class="sortable" data-column="kmDiff">الممشى منذ آخر تغيير</th>
+            <th class="sortable" data-column="date">تاريخ آخر تغيير زيت</th>
+            <th class="sortable" data-column="filter">حالة فلتر الزيت</th>
+            <th class="sortable" data-column="status">الحالة</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody">
+        </tbody>
+      </table>
+      <div id="noData" class="no-data" style="display:none;">
+        لا توجد بيانات لعرضها
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let allData = [];
+    let filteredData = [];
+    let currentSort = { column: null, direction: 'asc' };
+
+    // تحميل البيانات من localStorage
+    const dataStr = localStorage.getItem('tableViewData');
+    if (dataStr) {
+      allData = JSON.parse(dataStr);
+      filteredData = [...allData];
+    }
+
+    // عرض التاريخ
+    const today = new Date();
+    const dateStr = `${today.getFullYear()}/${String(today.getMonth()+1).padStart(2,'0')}/${String(today.getDate()).padStart(2,'0')}`;
+    document.getElementById('dateDisplay').textContent = `تاريخ: ${dateStr}`;
+
+    // حساب الإحصائيات
+    function updateStats() {
+      const colorCounts = { "🟢": 0, "🔴": 0, "🟠": 0, "⚪": 0, "🔵": 0, "⚫": 0 };
+      filteredData.forEach(item => {
+        item.emojis.forEach(e => {
+          if (colorCounts[e] !== undefined) colorCounts[e]++;
+        });
+      });
+
+      const statsHtml = `
+        <div class="stat-card" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);">
+          <div class="number">${colorCounts["🟢"]}</div>
+          <div class="label">🟢 أخضر</div>
+        </div>
+        <div class="stat-card" style="background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);">
+          <div class="number">${colorCounts["🔴"]}</div>
+          <div class="label">🔴 أحمر</div>
+        </div>
+        <div class="stat-card" style="background: linear-gradient(135deg, #f857a6 0%, #ff5858 100%);">
+          <div class="number">${colorCounts["🟠"]}</div>
+          <div class="label">🟠 برتقالي</div>
+        </div>
+        <div class="stat-card" style="background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);">
+          <div class="number">${colorCounts["⚪"]}</div>
+          <div class="label">⚪ أبيض</div>
+        </div>
+        <div class="stat-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+          <div class="number">${colorCounts["🔵"]}</div>
+          <div class="label">🔵 أزرق</div>
+        </div>
+        <div class="stat-card" style="background: linear-gradient(135deg, #434343 0%, #000000 100%);">
+          <div class="number">${colorCounts["⚫"]}</div>
+          <div class="label">⚫ أسود</div>
+        </div>
+      `;
+      document.getElementById('stats').innerHTML = statsHtml;
+    }
+
+    // عرض الجدول
+    function renderTable() {
+      const tbody = document.getElementById('tableBody');
+      const noData = document.getElementById('noData');
+      
+      if (filteredData.length === 0) {
+        tbody.innerHTML = '';
+        noData.style.display = 'block';
+        return;
+      }
+
+      noData.style.display = 'none';
+      tbody.innerHTML = filteredData.map((item, index) => {
+        const emojiDisplay = item.emojis.join(' ');
+        return `
+          <tr>
+            <td>${index + 1}</td>
+            <td>${item.type}</td>
+            <td><strong>${item.id}</strong></td>
+            <td>${item.currentKm}</td>
+            <td>${item.lastKm}</td>
+            <td>${item.kmDiff}</td>
+            <td>${item.date}</td>
+            <td>${item.filter}</td>
+            <td class="status-cell">${emojiDisplay}</td>
+          </tr>
+        `;
+      }).join('');
+
+      updateStats();
+    }
+
+    // التصفية
+    function applyFilters() {
+      const searchTerm = document.getElementById('searchInput').value.trim().toLowerCase();
+      const selectedColors = new Set(
+        [...document.querySelectorAll('.filter-colors input:checked')].map(cb => cb.value)
+      );
+
+      filteredData = allData.filter(item => {
+        const matchesSearch = !searchTerm || 
+          item.id.toLowerCase().includes(searchTerm) ||
+          item.type.toLowerCase().includes(searchTerm);
+        
+        const matchesColor = selectedColors.size === 0 || 
+          item.emojis.some(e => selectedColors.has(e));
+
+        return matchesSearch && matchesColor;
+      });
+
+      renderTable();
+    }
+
+    // الترتيب
+    function sortTable(column) {
+      if (currentSort.column === column) {
+        currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+      } else {
+        currentSort.column = column;
+        currentSort.direction = 'asc';
+      }
+
+      filteredData.sort((a, b) => {
+        let valA, valB;
+
+        if (column === 'index') {
+          return 0; // سيتم إعادة ترقيم الصفوف
+        } else if (column === 'kmDiff') {
+          valA = a[column] === '-' ? -1 : Number(a[column]);
+          valB = b[column] === '-' ? -1 : Number(b[column]);
+        } else if (column === 'id') {
+          valA = String(a[column]);
+          valB = String(b[column]);
+          const result = valA.localeCompare(valB, undefined, { numeric: true });
+          return currentSort.direction === 'asc' ? result : -result;
+        } else if (column === 'status') {
+          const order = { "🔴": 0, "🟠": 1, "🟢": 2, "🔵": 3, "⚪": 4, "⚫": 5 };
+          valA = order[a.emojis[0]] ?? 9;
+          valB = order[b.emojis[0]] ?? 9;
+        } else {
+          valA = a[column];
+          valB = b[column];
+        }
+
+        if (valA < valB) return currentSort.direction === 'asc' ? -1 : 1;
+        if (valA > valB) return currentSort.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+
+      // تحديث رموز الترتيب في الرأس
+      document.querySelectorAll('th').forEach(th => {
+        th.classList.remove('sorted-asc', 'sorted-desc');
+        if (th.dataset.column === column) {
+          th.classList.add(currentSort.direction === 'asc' ? 'sorted-asc' : 'sorted-desc');
+        }
+      });
+
+      renderTable();
+    }
+
+    // Events
+    document.getElementById('searchInput').addEventListener('input', applyFilters);
+    document.querySelectorAll('.filter-colors input').forEach(cb => {
+      cb.addEventListener('change', applyFilters);
+    });
+    document.querySelectorAll('th.sortable').forEach(th => {
+      th.addEventListener('click', () => sortTable(th.dataset.column));
+    });
+
+    // عرض أولي
+    renderTable();
+  </script>
+</body>
+</html>
