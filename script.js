@@ -626,73 +626,84 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
   
-  // تحديد عرض الأعمدة تلقائياً
-  const colWidths = headers.map((h, ci) => {
-    let maxLen = h.length;
-    dataArray.forEach((v, ri) => {
-      const val = aoa[ri + 3][ci];
-      const len = String(val).length;
-      if (len > maxLen) maxLen = len;
-    });
-    return { wch: Math.max(maxLen + 2, 8) };
-  });
+  // حساب عرض الأعمدة بدقة - على أساس أطول نص في كل عمود
+  const colWidths = [];
+  for (let ci = 0; ci < numCols; ci++) {
+    let maxLen = 0;
+    for (let ri = 0; ri < aoa.length; ri++) {
+      if (aoa[ri][ci]) {
+        const cellLen = String(aoa[ri][ci]).length;
+        if (cellLen > maxLen) maxLen = cellLen;
+      }
+    }
+    // نضيف 2 فقط للمسافة البسيطة حول النص
+    colWidths.push({ wch: maxLen + 2 });
+  }
   ws["!cols"] = colWidths;
   
   ws["!merges"] = [{ s:{ r:0, c:0 }, e:{ r:0, c:numCols-1 } }];
   ws["!rows"]   = [{ hpt:30 }, { hpt:6 }, { hpt:24 }];
 
-  // تنسيق الصف الأول (العنوان الرئيسي) - رصاصي فاتح + بولد + محاذاة وسط
-  ws[XLSX.utils.encode_cell({ r:0, c:0 })].s = {
-    font: { bold:true, sz:14, color:{ rgb:"000000" } },
-    fill: { fgColor:{ rgb:"D0D3D4" } },
-    alignment: { horizontal:"center", vertical:"center" },
+  // الحدود
+  const borderStyle = {
+    top:    { style:"thin", color:{ rgb:"95A5A6" } },
+    bottom: { style:"thin", color:{ rgb:"95A5A6" } },
+    left:   { style:"thin", color:{ rgb:"95A5A6" } },
+    right:  { style:"thin", color:{ rgb:"95A5A6" } }
   };
+
+  // تنسيق الصف الأول (العنوان الرئيسي) - رصاصي فاتح + بولد + محاذاة وسط
+  const titleCell = XLSX.utils.encode_cell({ r:0, c:0 });
+  if (ws[titleCell]) {
+    ws[titleCell].s = {
+      font: { bold: true, sz: 14, color: { rgb: "000000" } },
+      fill: { fgColor: { rgb: "D0D3D4" } },
+      alignment: { horizontal: "center", vertical: "center" }
+    };
+  }
 
   // تنسيق الصف الثالث (العناوين) - رصاصي فاتح + بولد + محاذاة وسط
-  const bW = { style:"thin", color:{ rgb:"95A5A6" } };
-  headers.forEach((_, ci) => {
-    const c = XLSX.utils.encode_cell({ r:2, c:ci });
-    if (!ws[c]) ws[c] = { v:headers[ci], t:"s" };
-    ws[c].s = {
-      font: { bold:true, sz:11, color:{ rgb:"000000" } },
-      fill: { fgColor:{ rgb:"D0D3D4" } },
-      alignment: { horizontal:"center", vertical:"center" },
-      border: { top:bW, bottom:bW, left:bW, right:bW }
-    };
-  });
-
-  const bThin = {
-    top:    { style:"thin", color:{ rgb:"BDC3C7" } },
-    bottom: { style:"thin", color:{ rgb:"BDC3C7" } },
-    left:   { style:"thin", color:{ rgb:"BDC3C7" } },
-    right:  { style:"thin", color:{ rgb:"BDC3C7" } },
-  };
+  for (let ci = 0; ci < numCols; ci++) {
+    const headerCell = XLSX.utils.encode_cell({ r: 2, c: ci });
+    if (ws[headerCell]) {
+      ws[headerCell].s = {
+        font: { bold: true, sz: 11, color: { rgb: "000000" } },
+        fill: { fgColor: { rgb: "D0D3D4" } },
+        alignment: { horizontal: "center", vertical: "center" },
+        border: borderStyle
+      };
+    }
+  }
 
   // تنسيق صفوف البيانات - كل النصوص في المنتصف
-  dataArray.forEach((v, ri) => {
+  for (let ri = 0; ri < dataArray.length; ri++) {
     const rowIdx = ri + 3;
+    const v = dataArray[ri];
+    
     for (let ci = 0; ci < numCols; ci++) {
-      const c = XLSX.utils.encode_cell({ r:rowIdx, c:ci });
-      if (!ws[c]) ws[c] = { v:"", t:"s" };
+      const cellAddr = XLSX.utils.encode_cell({ r: rowIdx, c: ci });
       
-      // تلوين خلية الحالة بدلاً من النص
       if (ci === STATUS_CI) {
-        ws[c] = { v:"", t:"s" }; // خلية فارغة تماماً
-        ws[c].s = { 
-          fill:{ fgColor:{ rgb: statusColor[v.emoji]||"FFFFFF" } }, 
-          alignment:{ horizontal:"center", vertical:"center" }, 
-          border:bThin
+        // عمود الحالة - خلية ملونة فارغة
+        if (!ws[cellAddr]) ws[cellAddr] = { t: "s", v: "" };
+        ws[cellAddr].v = ""; // نص فارغ
+        ws[cellAddr].s = {
+          fill: { fgColor: { rgb: statusColor[v.emoji] || "FFFFFF" } },
+          alignment: { horizontal: "center", vertical: "center" },
+          border: borderStyle
         };
       } else {
-        ws[c].s = { 
-          fill:{ fgColor:{ rgb:"FFFFFF" } }, 
-          alignment:{ horizontal:"center", vertical:"center" }, 
-          border:bThin, 
-          font:{ sz:11, color:{ rgb:"000000" } } 
-        };
+        // باقي الأعمدة - نصوص عادية في المنتصف
+        if (ws[cellAddr]) {
+          ws[cellAddr].s = {
+            alignment: { horizontal: "center", vertical: "center" },
+            border: borderStyle,
+            font: { sz: 11, color: { rgb: "000000" } }
+          };
+        }
       }
     }
-  });
+  }
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "المركبات");
