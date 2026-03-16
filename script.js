@@ -626,7 +626,7 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
   });
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
-  ws["!cols"] = [{ wch:4 },{ wch:16 },{ wch:12 },{ wch:14 },{ wch:20 },{ wch:18 },{ wch:18 },{ wch:28 },{ wch:8 }];
+  ws["!cols"] = [{ wch:4 },{ wch:16 },{ wch:12 },{ wch:14 },{ wch:25 },{ wch:18 },{ wch:18 },{ wch:33 },{ wch:8 }];
   ws["!merges"] = [{ s:{ r:0, c:0 }, e:{ r:0, c:numCols-1 } }];
   ws["!rows"]   = [{ hpt:28 }, { hpt:6 }, { hpt:20 }];
 
