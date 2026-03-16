@@ -621,7 +621,7 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
   aoa.push(Array(numCols).fill(""));
   aoa.push(headers);
   dataArray.forEach((v, i) => {
-    aoa.push([i + 1, v.type, v.id, v.currentKm, v.lastKm, v.kmDiff, v.date, v.filter, v.emoji]);
+    aoa.push([i + 1, v.type, v.id, v.currentKm, v.lastKm, v.kmDiff, v.date, v.filter, ""]); // خلية الحالة فارغة
   });
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
@@ -677,7 +677,7 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
       
       // تلوين خلية الحالة بدلاً من النص
       if (ci === STATUS_CI) {
-        ws[c].v = ""; // خلية فارغة
+        ws[c] = { v:"", t:"s" }; // خلية فارغة تماماً
         ws[c].s = { 
           fill:{ fgColor:{ rgb: statusColor[v.emoji]||"FFFFFF" } }, 
           alignment:{ horizontal:"center", vertical:"center" }, 
@@ -688,7 +688,7 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
           fill:{ fgColor:{ rgb:"FFFFFF" } }, 
           alignment:{ horizontal:"center", vertical:"center" }, 
           border:bThin, 
-          font:{ sz:10 } 
+          font:{ sz:11, color:{ rgb:"000000" } } 
         };
       }
     }
@@ -751,25 +751,25 @@ function showWebTable(dataArray) {
     <div id="tableModal" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:9999; display:flex; align-items:center; justify-content:center; padding:20px;">
       <div style="background:white; border-radius:12px; width:95%; max-width:1400px; max-height:90vh; overflow:auto; padding:30px; box-shadow:0 10px 40px rgba(0,0,0,0.3);">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-          <h2 style="margin:0; color:#2c3e50; font-size:22px;">متابعة زيوت المركبات — ${dateStr}</h2>
+          <h2 style="margin:0; color:#000; font-size:22px; font-weight:bold;">متابعة زيوت المركبات — ${dateStr}</h2>
           <button onclick="document.getElementById('tableModal').remove()" style="background:#e74c3c; color:white; border:none; padding:8px 16px; border-radius:6px; cursor:pointer; font-size:16px; font-weight:bold;">✕ إغلاق</button>
         </div>
         <div style="margin-bottom:15px;">
-          <input type="text" id="tableSearchInput" placeholder="🔍 ابحث في الجدول..." style="width:100%; padding:10px; border:2px solid #ddd; border-radius:6px; font-size:14px;" />
+          <input type="text" id="tableSearchInput" placeholder="🔍 ابحث في الجدول..." style="width:100%; padding:10px; border:2px solid #ddd; border-radius:6px; font-size:14px; color:#000;" />
         </div>
         <div style="overflow-x:auto;">
-          <table id="dataTable" style="width:100%; border-collapse:collapse; font-size:13px;">
+          <table id="dataTable" style="width:100%; border-collapse:collapse; font-size:14px; color:#000;">
             <thead>
-              <tr style="background:#D0D3D4; font-weight:bold;">
-                <th style="padding:12px; text-align:center; border:1px solid #95A5A6;">#</th>
-                <th style="padding:12px; text-align:center; border:1px solid #95A5A6; cursor:pointer;" onclick="sortTable(1)">نوع المعدة ⇅</th>
-                <th style="padding:12px; text-align:center; border:1px solid #95A5A6; cursor:pointer;" onclick="sortTable(2)">رقم المعدة ⇅</th>
-                <th style="padding:12px; text-align:center; border:1px solid #95A5A6;">الممشى الحالي</th>
-                <th style="padding:12px; text-align:center; border:1px solid #95A5A6;">ممشى آخر تغيير زيت</th>
-                <th style="padding:12px; text-align:center; border:1px solid #95A5A6;">الممشى منذ آخر تغيير</th>
-                <th style="padding:12px; text-align:center; border:1px solid #95A5A6;">تاريخ آخر تغيير زيت</th>
-                <th style="padding:12px; text-align:center; border:1px solid #95A5A6;">حالة فلتر الزيت</th>
-                <th style="padding:12px; text-align:center; border:1px solid #95A5A6;">الحالة</th>
+              <tr style="background:#D0D3D4; font-weight:bold; color:#000;">
+                <th style="padding:12px; text-align:center; border:1px solid #95A5A6; color:#000;">#</th>
+                <th style="padding:12px; text-align:center; border:1px solid #95A5A6; cursor:pointer; color:#000;" onclick="sortTable(1)">نوع المعدة ⇅</th>
+                <th style="padding:12px; text-align:center; border:1px solid #95A5A6; cursor:pointer; color:#000;" onclick="sortTable(2)">رقم المعدة ⇅</th>
+                <th style="padding:12px; text-align:center; border:1px solid #95A5A6; color:#000;">الممشى الحالي</th>
+                <th style="padding:12px; text-align:center; border:1px solid #95A5A6; color:#000;">ممشى آخر تغيير زيت</th>
+                <th style="padding:12px; text-align:center; border:1px solid #95A5A6; color:#000;">الممشى منذ آخر تغيير</th>
+                <th style="padding:12px; text-align:center; border:1px solid #95A5A6; color:#000;">تاريخ آخر تغيير زيت</th>
+                <th style="padding:12px; text-align:center; border:1px solid #95A5A6; color:#000;">حالة فلتر الزيت</th>
+                <th style="padding:12px; text-align:center; border:1px solid #95A5A6; color:#000;">الحالة</th>
               </tr>
             </thead>
             <tbody>
@@ -779,14 +779,14 @@ function showWebTable(dataArray) {
     const bgColor = statusColor[v.emoji] || "#FFFFFF";
     modalHTML += `
       <tr style="background:${i % 2 === 0 ? '#ffffff' : '#f8f9fa'};">
-        <td style="padding:10px; text-align:center; border:1px solid #BDC3C7;">${i + 1}</td>
-        <td style="padding:10px; text-align:center; border:1px solid #BDC3C7;">${v.type}</td>
-        <td style="padding:10px; text-align:center; border:1px solid #BDC3C7;">${v.id}</td>
-        <td style="padding:10px; text-align:center; border:1px solid #BDC3C7;">${v.currentKm}</td>
-        <td style="padding:10px; text-align:center; border:1px solid #BDC3C7;">${v.lastKm}</td>
-        <td style="padding:10px; text-align:center; border:1px solid #BDC3C7;">${v.kmDiff}</td>
-        <td style="padding:10px; text-align:center; border:1px solid #BDC3C7;">${v.date}</td>
-        <td style="padding:10px; text-align:center; border:1px solid #BDC3C7;">${v.filter}</td>
+        <td style="padding:10px; text-align:center; border:1px solid #BDC3C7; color:#000000; font-weight:600; font-size:14px;">${i + 1}</td>
+        <td style="padding:10px; text-align:center; border:1px solid #BDC3C7; color:#000000; font-weight:600; font-size:14px;">${v.type}</td>
+        <td style="padding:10px; text-align:center; border:1px solid #BDC3C7; color:#000000; font-weight:600; font-size:14px;">${v.id}</td>
+        <td style="padding:10px; text-align:center; border:1px solid #BDC3C7; color:#000000; font-weight:600; font-size:14px;">${v.currentKm}</td>
+        <td style="padding:10px; text-align:center; border:1px solid #BDC3C7; color:#000000; font-weight:600; font-size:14px;">${v.lastKm}</td>
+        <td style="padding:10px; text-align:center; border:1px solid #BDC3C7; color:#000000; font-weight:600; font-size:14px;">${v.kmDiff}</td>
+        <td style="padding:10px; text-align:center; border:1px solid #BDC3C7; color:#000000; font-weight:600; font-size:14px;">${v.date}</td>
+        <td style="padding:10px; text-align:center; border:1px solid #BDC3C7; color:#000000; font-weight:600; font-size:14px;">${v.filter}</td>
         <td style="padding:10px; text-align:center; border:1px solid #BDC3C7; background:${bgColor};"></td>
       </tr>
     `;
