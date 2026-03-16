@@ -282,12 +282,12 @@ function renderVehicles(filterColors = null, searchTerm = "") {
   filterBar.innerHTML = `
     <div class="stored-filter-checks">
       <label class="all-check-label"><input type="checkbox" id="filterAll" ${storedFilterEmojis.size===6?'checked':''}/> 📋 الكل</label>
-      <label><input type="checkbox" value="🟢" ${storedFilterEmojis.has("🟢")?'checked':''}/> الزيت جديد🟢</label>
-      <label><input type="checkbox" value="🔴" ${storedFilterEmojis.has("🔴")?'checked':''}/> تحتاج تغيير زيت🔴</label>
-      <label><input type="checkbox" value="🟠" ${storedFilterEmojis.has("🟠")?'checked':''}/> لايوجد تغيير زيت🟠</label>
-      <label><input type="checkbox" value="⚪" ${storedFilterEmojis.has("⚪")?'checked':''}/> لايوجد ممشى حالي⚪</label>
-      <label><input type="checkbox" value="🔵" ${storedFilterEmojis.has("🔵")?'checked':''}/> العداد لايعمل🔵</label>
-      <label><input type="checkbox" value="⚫" ${storedFilterEmojis.has("⚫")?'checked':''}/> لايوجد ممشى في اخر تغيير⚫</label>
+      <label><input type="checkbox" value="🟢" ${storedFilterEmojis.has("🟢")?'checked':''}/> 🟢 الزيت جديد</label>
+      <label><input type="checkbox" value="🔴" ${storedFilterEmojis.has("🔴")?'checked':''}/> 🔴 تحتاج تغيير زيت</label>
+      <label><input type="checkbox" value="🟠" ${storedFilterEmojis.has("🟠")?'checked':''}/> 🟠 لايوجد تغيير زيت</label>
+      <label><input type="checkbox" value="⚪" ${storedFilterEmojis.has("⚪")?'checked':''}/> ⚪ لايوجد ممشى حالي</label>
+      <label><input type="checkbox" value="🔵" ${storedFilterEmojis.has("🔵")?'checked':''}/> 🔵 العداد لا يعمل</label>
+      <label><input type="checkbox" value="⚫" ${storedFilterEmojis.has("⚫")?'checked':''}/> ⚫ لايوجد ممشى في اخر تغيير</label>
     </div>
     <button class="copy-filtered-btn" id="copyFilteredBtn">📋 نسخ المعروض</button>
   `;
