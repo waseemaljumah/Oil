@@ -89,20 +89,45 @@ function isNoKm(lastKm) {
 // =================== حساب العلامة اللونية ===================
 function getStatusEmoji(type, currentKmRaw, lastKm) {
   const cur = parseCurrentKm(currentKmRaw);
+  let emojis = [];
 
-  if (cur.type === "broken") return "🔵";
-  if (cur.type === "none")   return "⚪";
-  if (isNoKm(lastKm))        return "⚫";
+  // إذا ما فيه تاريخ تغيير زيت سابق = برتقالي
+  if (!lastKm || lastKm === "" || lastKm === null || lastKm === undefined) {
+    return "🟠";
+  }
 
-  const kmDiff = cur.value - Number(lastKm);
-  const volvoTypes = ["لوبد فولفو", "قلاب فولفو", "وايت فولفو", "فولفو"];
-  const heavyTypes = ["قريدر", "شيول", "بوكلين", "بلدوزر", "بوبكات", "مدحلة"];
+  // العداد لا يعمل = أزرق
+  if (cur.type === "broken") {
+    emojis.push("🔵");
+  }
+  
+  // لا يوجد ممشى حالي = أبيض
+  if (cur.type === "none") {
+    emojis.push("⚪");
+  }
+  
+  // لا يوجد عداد في آخر تغيير زيت = أسود
+  if (isNoKm(lastKm)) {
+    if (!emojis.includes("⚪")) emojis.push("⚫");
+  }
 
-  if (volvoTypes.includes(type))    return kmDiff >= 5500 ? "🔴" : "🟢";
-  if (type === "قلاب مرسيدس")       return kmDiff >= 9500 ? "🔴" : "🟢";
-  if (type === "دينا")               return kmDiff >= 4500 ? "🔴" : "🟢";
-  if (heavyTypes.includes(type))    return kmDiff >= 250  ? "🔴" : "🟢";
-  return "🟢";
+  // إذا فيه ممشى حالي وممشى آخر تغيير، نحسب الفرق
+  if (cur.type === "value" && !isNoKm(lastKm)) {
+    const kmDiff = cur.value - Number(lastKm);
+    const volvoTypes = ["لوبد فولفو", "قلاب فولفو", "وايت فولفو", "فولفو"];
+    const heavyTypes = ["قريدر", "شيول", "بوكلين", "بلدوزر", "بوبكات", "مدحلة"];
+
+    let colorEmoji = "🟢";
+    if (volvoTypes.includes(type))    colorEmoji = kmDiff >= 5500 ? "🔴" : "🟢";
+    else if (type === "قلاب مرسيدس")  colorEmoji = kmDiff >= 9500 ? "🔴" : "🟢";
+    else if (type === "دينا")         colorEmoji = kmDiff >= 4500 ? "🔴" : "🟢";
+    else if (heavyTypes.includes(type)) colorEmoji = kmDiff >= 250 ? "🔴" : "🟢";
+    
+    emojis.push(colorEmoji);
+  }
+
+  // إرجاع الإيموجيات (إما واحد أو اثنين)
+  return emojis.length > 0 ? emojis.join("") : "🟢";
 }
 
 // =================== دالة الحفظ المشتركة ===================
@@ -492,7 +517,14 @@ function copyByColors(selectedEmojis) {
   let text = `المتابعة اليومية للزيوت / تاريخ: ${todayFormatted}\n\n`;
   const sortedTypes = Object.keys(sessionVehicles).sort();
   sortedTypes.forEach(type => {
-    const filtered = sessionVehicles[type].filter(v => emojiSet.has(getStatusEmoji(type, v.data.currentKm, v.data.lastKm)));
+    const filtered = sessionVehicles[type].filter(v => {
+      const emoji = getStatusEmoji(type, v.data.currentKm, v.data.lastKm);
+      // نتحقق إذا الإيموجي يحتوي على أي من الألوان المحددة
+      for (let selectedEmoji of emojiSet) {
+        if (emoji.includes(selectedEmoji)) return true;
+      }
+      return false;
+    });
     filtered.sort((a,b) => (b.data.kmSinceLastChange||0) - (a.data.kmSinceLastChange||0));
     filtered.forEach(v => {
       const dp = v.data.date ? v.data.date.split("-") : [];
@@ -572,7 +604,7 @@ function clearForm() {
 document.getElementById("exportBtn").addEventListener("click", async () => {
   const querySnapshot = await getDocs(collection(db, "vehicles"));
   const sortMode = document.getElementById("exportSortSelect").value;
-  const colorOrder = { "🔴": 0, "🟢": 1, "🔵": 2, "⚪": 3, "⚫": 4 };
+  const colorOrder = { "🔴": 0, "🟢": 1, "🔵": 2, "🟠": 3, "⚪": 4, "⚫": 5 };
 
   // الألوان المحددة للتصدير
   const exportColors = new Set(
@@ -588,7 +620,14 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
     const dp = d.date ? d.date.split("-") : [];
     const fd = dp.length === 3 ? `${dp[2]}/${dp[1]}/${dp[0]}` : (d.date || "");
     const emoji = getStatusEmoji(d.type, d.currentKm, d.lastKm);
-    if (exportColors.has(emoji)) {
+    
+    // نتحقق إذا الإيموجي يحتوي على أي من الألوان المحددة
+    let shouldInclude = false;
+    exportColors.forEach(color => {
+      if (emoji.includes(color)) shouldInclude = true;
+    });
+    
+    if (shouldInclude) {
       dataArray.push({ type: d.type, id: docItem.id, currentKm: d.currentKm, lastKm: d.lastKm, kmDiff, date: fd, filter: d.filter, emoji });
     }
   });
@@ -602,7 +641,11 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
   } else if (sortMode === "numDesc") {
     dataArray.sort((a, b) => String(b.id).localeCompare(String(a.id), undefined, { numeric: true }));
   } else if (sortMode === "color") {
-    dataArray.sort((a, b) => (colorOrder[a.emoji] ?? 9) - (colorOrder[b.emoji] ?? 9) || a.type.localeCompare(b.type, "ar"));
+    dataArray.sort((a, b) => {
+      const aFirstEmoji = a.emoji[0] || "🟢";
+      const bFirstEmoji = b.emoji[0] || "🟢";
+      return (colorOrder[aFirstEmoji] ?? 9) - (colorOrder[bFirstEmoji] ?? 9) || a.type.localeCompare(b.type, "ar");
+    });
   }
 
   const today   = new Date();
@@ -612,99 +655,35 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
   const dateStr = `${dd}/${mm}/${yyyy}`;
 
   const headers   = ["#", "نوع المعدة", "رقم المعدة", "الممشى الحالي", "ممشى آخر تغيير زيت", "الممشى منذ آخر تغيير", "تاريخ آخر تغيير زيت", "حالة فلتر الزيت", "الحالة"];
-  const numCols   = headers.length;
-  const STATUS_CI = numCols - 1;
-  const statusColor = { "🔴": "E74C3C", "🟢": "27AE60", "🔵": "2980B9", "⚪": "D0D3D4", "⚫": "616A6B" };
+  
+  const statusText = { 
+    "🔴": "احمر", 
+    "🟢": "اخضر", 
+    "🔵": "ازرق", 
+    "🟠": "برتقالي", 
+    "⚪": "ابيض", 
+    "⚫": "اسود"
+  };
 
   const aoa = [];
-  aoa.push([`متابعة زيوت المركبات — تاريخ: ${dateStr}`, ...Array(numCols - 1).fill("")]);
-  aoa.push(Array(numCols).fill(""));
+  aoa.push([`متابعة زيوت المركبات — تاريخ: ${dateStr}`]);
+  aoa.push([]);
   aoa.push(headers);
+  
   dataArray.forEach((v, i) => {
-    aoa.push([i + 1, v.type, v.id, v.currentKm, v.lastKm, v.kmDiff, v.date, v.filter, ""]); // خلية الحالة فارغة
+    // تحويل الإيموجيات لنصوص
+    let statusStr = "";
+    for (let char of v.emoji) {
+      if (statusText[char]) {
+        statusStr += statusText[char] + " ";
+      }
+    }
+    statusStr = statusStr.trim();
+    
+    aoa.push([i + 1, v.type, v.id, v.currentKm, v.lastKm, v.kmDiff, v.date, v.filter, statusStr]);
   });
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
-  
-  // حساب عرض الأعمدة بدقة - على أساس أطول نص في كل عمود
-  const colWidths = [];
-  for (let ci = 0; ci < numCols; ci++) {
-    let maxLen = 0;
-    for (let ri = 0; ri < aoa.length; ri++) {
-      if (aoa[ri][ci]) {
-        const cellLen = String(aoa[ri][ci]).length;
-        if (cellLen > maxLen) maxLen = cellLen;
-      }
-    }
-    // نضيف 2 فقط للمسافة البسيطة حول النص
-    colWidths.push({ wch: maxLen + 2 });
-  }
-  ws["!cols"] = colWidths;
-  
-  ws["!merges"] = [{ s:{ r:0, c:0 }, e:{ r:0, c:numCols-1 } }];
-  ws["!rows"]   = [{ hpt:30 }, { hpt:6 }, { hpt:24 }];
-
-  // الحدود
-  const borderStyle = {
-    top:    { style:"thin", color:{ rgb:"95A5A6" } },
-    bottom: { style:"thin", color:{ rgb:"95A5A6" } },
-    left:   { style:"thin", color:{ rgb:"95A5A6" } },
-    right:  { style:"thin", color:{ rgb:"95A5A6" } }
-  };
-
-  // تنسيق الصف الأول (العنوان الرئيسي) - رصاصي فاتح + بولد + محاذاة وسط
-  const titleCell = XLSX.utils.encode_cell({ r:0, c:0 });
-  if (ws[titleCell]) {
-    ws[titleCell].s = {
-      font: { bold: true, sz: 14, color: { rgb: "000000" } },
-      fill: { fgColor: { rgb: "D0D3D4" } },
-      alignment: { horizontal: "center", vertical: "center" }
-    };
-  }
-
-  // تنسيق الصف الثالث (العناوين) - رصاصي فاتح + بولد + محاذاة وسط
-  for (let ci = 0; ci < numCols; ci++) {
-    const headerCell = XLSX.utils.encode_cell({ r: 2, c: ci });
-    if (ws[headerCell]) {
-      ws[headerCell].s = {
-        font: { bold: true, sz: 11, color: { rgb: "000000" } },
-        fill: { fgColor: { rgb: "D0D3D4" } },
-        alignment: { horizontal: "center", vertical: "center" },
-        border: borderStyle
-      };
-    }
-  }
-
-  // تنسيق صفوف البيانات - كل النصوص في المنتصف
-  for (let ri = 0; ri < dataArray.length; ri++) {
-    const rowIdx = ri + 3;
-    const v = dataArray[ri];
-    
-    for (let ci = 0; ci < numCols; ci++) {
-      const cellAddr = XLSX.utils.encode_cell({ r: rowIdx, c: ci });
-      
-      if (ci === STATUS_CI) {
-        // عمود الحالة - خلية ملونة فارغة
-        if (!ws[cellAddr]) ws[cellAddr] = { t: "s", v: "" };
-        ws[cellAddr].v = ""; // نص فارغ
-        ws[cellAddr].s = {
-          fill: { fgColor: { rgb: statusColor[v.emoji] || "FFFFFF" } },
-          alignment: { horizontal: "center", vertical: "center" },
-          border: borderStyle
-        };
-      } else {
-        // باقي الأعمدة - نصوص عادية في المنتصف
-        if (ws[cellAddr]) {
-          ws[cellAddr].s = {
-            alignment: { horizontal: "center", vertical: "center" },
-            border: borderStyle,
-            font: { sz: 11, color: { rgb: "000000" } }
-          };
-        }
-      }
-    }
-  }
-
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "المركبات");
   XLSX.writeFile(wb, `متابعة_المركبات_${dd}-${mm}-${yyyy}.xlsx`);
@@ -714,7 +693,7 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
 document.getElementById("viewTableBtn").addEventListener("click", async () => {
   const querySnapshot = await getDocs(collection(db, "vehicles"));
   const sortMode = document.getElementById("exportSortSelect").value;
-  const colorOrder = { "🔴": 0, "🟢": 1, "🔵": 2, "⚪": 3, "⚫": 4 };
+  const colorOrder = { "🔴": 0, "🟢": 1, "🔵": 2, "🟠": 3, "⚪": 4, "⚫": 5 };
 
   const exportColors = new Set(
     [...document.querySelectorAll(".export-color-checkboxes input:checked")].map(cb => cb.value)
@@ -729,7 +708,14 @@ document.getElementById("viewTableBtn").addEventListener("click", async () => {
     const dp = d.date ? d.date.split("-") : [];
     const fd = dp.length === 3 ? `${dp[2]}/${dp[1]}/${dp[0]}` : (d.date || "");
     const emoji = getStatusEmoji(d.type, d.currentKm, d.lastKm);
-    if (exportColors.has(emoji)) {
+    
+    // نتحقق إذا الإيموجي يحتوي على أي من الألوان المحددة
+    let shouldInclude = false;
+    exportColors.forEach(color => {
+      if (emoji.includes(color)) shouldInclude = true;
+    });
+    
+    if (shouldInclude) {
       dataArray.push({ type: d.type, id: docItem.id, currentKm: d.currentKm, lastKm: d.lastKm, kmDiff, date: fd, filter: d.filter, emoji });
     }
   });
@@ -743,7 +729,11 @@ document.getElementById("viewTableBtn").addEventListener("click", async () => {
   } else if (sortMode === "numDesc") {
     dataArray.sort((a, b) => String(b.id).localeCompare(String(a.id), undefined, { numeric: true }));
   } else if (sortMode === "color") {
-    dataArray.sort((a, b) => (colorOrder[a.emoji] ?? 9) - (colorOrder[b.emoji] ?? 9) || a.type.localeCompare(b.type, "ar"));
+    dataArray.sort((a, b) => {
+      const aFirstEmoji = a.emoji[0] || "🟢";
+      const bFirstEmoji = b.emoji[0] || "🟢";
+      return (colorOrder[aFirstEmoji] ?? 9) - (colorOrder[bFirstEmoji] ?? 9) || a.type.localeCompare(b.type, "ar");
+    });
   }
 
   showWebTable(dataArray);
@@ -756,7 +746,79 @@ function showWebTable(dataArray) {
   const dd = String(today.getDate()).padStart(2, "0");
   const dateStr = `${dd}/${mm}/${yyyy}`;
 
-  const statusColor = { "🔴": "#E74C3C", "🟢": "#27AE60", "🔵": "#2980B9", "⚪": "#D0D3D4", "⚫": "#616A6B" };
+  const statusColor = { "🔴": "#E74C3C", "🟢": "#27AE60", "🔵": "#2980B9", "🟠": "#FF8C00", "⚪": "#D0D3D4", "⚫": "#616A6B" };
+
+  let modalHTML = `
+    <div id="tableModal" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:9999; display:flex; align-items:center; justify-content:center; padding:20px;">
+      <div style="background:white; border-radius:12px; width:95%; max-width:1400px; max-height:90vh; overflow:auto; padding:30px; box-shadow:0 10px 40px rgba(0,0,0,0.3);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+          <h2 style="margin:0; color:#000000; font-size:22px; font-weight:bold;">متابعة زيوت المركبات — ${dateStr}</h2>
+          <button onclick="document.getElementById('tableModal').remove()" style="background:#e74c3c; color:white; border:none; padding:8px 16px; border-radius:6px; cursor:pointer; font-size:16px; font-weight:bold;">✕ إغلاق</button>
+        </div>
+        <div style="margin-bottom:15px;">
+          <input type="text" id="tableSearchInput" placeholder="🔍 ابحث في الجدول..." style="width:100%; padding:10px; border:2px solid #ddd; border-radius:6px; font-size:14px; color:#000000;" />
+        </div>
+        <div style="overflow-x:auto;">
+          <table id="dataTable" style="width:100%; border-collapse:collapse; font-size:14px;">
+            <thead>
+              <tr style="background:#D0D3D4; font-weight:bold;">
+                <th style="padding:12px; text-align:center; border:1px solid #95A5A6; color:#000000; font-weight:bold;">#</th>
+                <th style="padding:12px; text-align:center; border:1px solid #95A5A6; cursor:pointer; color:#000000; font-weight:bold;" onclick="sortTable(1)">نوع المعدة ⇅</th>
+                <th style="padding:12px; text-align:center; border:1px solid #95A5A6; cursor:pointer; color:#000000; font-weight:bold;" onclick="sortTable(2)">رقم المعدة ⇅</th>
+                <th style="padding:12px; text-align:center; border:1px solid #95A5A6; color:#000000; font-weight:bold;">الممشى الحالي</th>
+                <th style="padding:12px; text-align:center; border:1px solid #95A5A6; color:#000000; font-weight:bold;">ممشى آخر تغيير زيت</th>
+                <th style="padding:12px; text-align:center; border:1px solid #95A5A6; color:#000000; font-weight:bold;">الممشى منذ آخر تغيير</th>
+                <th style="padding:12px; text-align:center; border:1px solid #95A5A6; color:#000000; font-weight:bold;">تاريخ آخر تغيير زيت</th>
+                <th style="padding:12px; text-align:center; border:1px solid #95A5A6; color:#000000; font-weight:bold;">حالة فلتر الزيت</th>
+                <th style="padding:12px; text-align:center; border:1px solid #95A5A6; color:#000000; font-weight:bold;">الحالة</th>
+              </tr>
+            </thead>
+            <tbody>
+  `;
+
+  dataArray.forEach((v, i) => {
+    // عرض الإيموجيات بشكل صحيح
+    let statusDisplay = "";
+    for (let char of v.emoji) {
+      const bgColor = statusColor[char] || "#FFFFFF";
+      statusDisplay += `<span style="display:inline-block; width:20px; height:20px; background:${bgColor}; border-radius:3px; margin:2px; border:1px solid #999;"></span>`;
+    }
+    
+    modalHTML += `
+      <tr style="background:${i % 2 === 0 ? '#ffffff' : '#f8f9fa'};">
+        <td style="padding:10px; text-align:center; border:1px solid #BDC3C7; color:#000000; font-weight:600; font-size:14px;">${i + 1}</td>
+        <td style="padding:10px; text-align:center; border:1px solid #BDC3C7; color:#000000; font-weight:600; font-size:14px;">${v.type}</td>
+        <td style="padding:10px; text-align:center; border:1px solid #BDC3C7; color:#000000; font-weight:600; font-size:14px;">${v.id}</td>
+        <td style="padding:10px; text-align:center; border:1px solid #BDC3C7; color:#000000; font-weight:600; font-size:14px;">${v.currentKm}</td>
+        <td style="padding:10px; text-align:center; border:1px solid #BDC3C7; color:#000000; font-weight:600; font-size:14px;">${v.lastKm}</td>
+        <td style="padding:10px; text-align:center; border:1px solid #BDC3C7; color:#000000; font-weight:600; font-size:14px;">${v.kmDiff}</td>
+        <td style="padding:10px; text-align:center; border:1px solid #BDC3C7; color:#000000; font-weight:600; font-size:14px;">${v.date}</td>
+        <td style="padding:10px; text-align:center; border:1px solid #BDC3C7; color:#000000; font-weight:600; font-size:14px;">${v.filter}</td>
+        <td style="padding:10px; text-align:center; border:1px solid #BDC3C7;">${statusDisplay}</td>
+      </tr>
+    `;
+  });
+
+  modalHTML += `
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+  // البحث في الجدول
+  document.getElementById('tableSearchInput').addEventListener('input', function() {
+    const searchTerm = this.value.toLowerCase();
+    const rows = document.querySelectorAll('#dataTable tbody tr');
+    rows.forEach(row => {
+      const text = row.textContent.toLowerCase();
+      row.style.display = text.includes(searchTerm) ? '' : 'none';
+    });
+  });
+}
 
   let modalHTML = `
     <div id="tableModal" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:9999; display:flex; align-items:center; justify-content:center; padding:20px;">
