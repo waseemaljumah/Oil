@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="ar" dir="rtl">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -8,146 +9,159 @@
   <script type="module" src="script.js"></script>
   <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 </head>
+
 <body>
 
-<!-- زر الدارك مود -->
-<button id="darkToggle">🌙</button>
+  <!-- زر الدارك مود -->
+  <button id="darkToggle">🌙</button>
 
-<div style="text-align:center; margin-bottom:10px;">
-  <a href="cars.html" style="display:inline-block;padding:8px 20px;background:#4a90e2;color:white;border-radius:20px;text-decoration:none;font-size:14px;font-weight:bold;">🚗 سيارات الشركة</a>
-</div>
-
-<h2>نموذج إدخال بيانات المركبات</h2>
-
-<div class="card">
-  <!-- رقم المعدة + بحث + حذف في صف واحد -->
-  <label>رقم المعدة</label>
-  <div class="number-row">
-    <input id="number" placeholder="رقم المعدة" />
-    <button id="searchBtn" class="btn-sm btn-blue">🔍 بحث</button>
-    <button id="deleteBtn" class="btn-sm btn-red">🗑 حذف</button>
+  <div style="text-align:center; margin-bottom:10px;">
+    <a href="cars.html"
+      style="display:inline-block;padding:8px 20px;background:#4a90e2;color:white;border-radius:20px;text-decoration:none;font-size:14px;font-weight:bold;">🚗
+      سيارات الشركة</a>
   </div>
 
-  <label>نوع المعدة</label>
-  <select id="typeSelect">
-    <option value="قلاب مرسيدس">قلاب مرسيدس</option>
-    <option value="قلاب فولفو">قلاب فولفو</option>
-    <option value="لوبد فولفو">لوبد فولفو</option>
-    <option value="وايت فولفو">وايت فولفو</option>
-    <option value="وايت">وايت</option>
-    <option value="دينا">دينا</option>
-    <option value="شيول">شيول</option>
-    <option value="بوكلين">بوكلين</option>
-    <option value="بلدوزر">بلدوزر</option>
-    <option value="بوبكات">بوبكات</option>
-    <option value="اخرى">أخرى</option>
-  </select>
-  <input id="typeOther" placeholder="اكتب نوع المعدة" />
+  <h2>نموذج إدخال بيانات المركبات</h2>
 
-  <label>تاريخ آخر تغيير زيت</label>
-  <input type="date" id="date" />
+  <div class="card">
+    <!-- رقم المعدة + بحث + حذف في صف واحد -->
+    <label>رقم المعدة</label>
+    <div class="number-row">
+      <input id="number" placeholder="رقم المعدة" />
+      <button id="searchBtn" class="btn-sm btn-blue">🔍 بحث</button>
+      <button id="deleteBtn" class="btn-sm btn-red">🗑 حذف</button>
+    </div>
 
-  <label>الممشى الحالي</label>
-  <select id="currentKmSelect">
-    <option value="has">يوجد ممشى حالي</option>
-    <option value="none">لا يوجد ممشى حالي</option>
-    <option value="broken">العداد لا يعمل</option>
-  </select>
-  <input type="number" id="currentKm" placeholder="اكتب الممشى الحالي" />
+    <label>نوع المعدة</label>
+    <select id="typeSelect">
+      <option value="قلاب مرسيدس">قلاب مرسيدس</option>
+      <option value="قلاب فولفو">قلاب فولفو</option>
+      <option value="لوبد فولفو">لوبد فولفو</option>
+      <option value="وايت فولفو">وايت فولفو</option>
+      <option value="وايت">وايت</option>
+      <option value="دينا">دينا</option>
+      <option value="سطحة">سطحة</option>
+      <option value="دينا سطحة">دينا سطحة</option>
+      <option value="ونش">ونش</option>
+      <option value="دينا ونش">دينا ونش</option>
+      <option value="حافلة">حافلة</option>
+      <option value="شيول">شيول</option>
+      <option value="شيول جي سي بي">شيول جي سي بي</option>
+      <option value="جي سي بي">جي سي بي</option>
+      <option value="قريدر">قريدر</option>
+      <option value="بوكلين">بوكلين</option>
+      <option value="بلدوزر">بلدوزر</option>
+      <option value="بوبكات">بوبكات</option>
+      <option value="اخرى">أخرى</option>
+    </select>
+    <input id="typeOther" placeholder="اكتب نوع المعدة" />
 
-  <label>ممشى آخر تغيير زيت</label>
-  <select id="lastKmSelect">
-    <option value="has">يوجد عداد في آخر تغيير زيت</option>
-    <option value="no">لا يوجد عداد في آخر تغيير زيت في النظام</option>
-    <option value="never">لم يتم تغيير الزيت</option>
-    <option value="other">أخرى</option>
-  </select>
-  <input type="number" id="lastKmInput" placeholder="اكتب ممشى آخر تغيير زيت" />
-  <input id="lastKmOther" placeholder="اكتب الملاحظة" />
+    <label>تاريخ آخر تغيير زيت</label>
+    <input type="date" id="date" />
 
-  <label>حالة فلتر الزيت</label>
-  <select id="filterSelect">
-    <option value="تم تغييره في آخر تغيير">تم تغييره في آخر تغيير</option>
-    <option value="تم تغييره في التغيير قبل الأخير">تم تغييره في التغيير قبل الأخير</option>
-    <option value="لم يتم تغييره في آخر تغييرين">لم يتم تغييره في آخر تغييرين</option>
-    <option value="لم يتم تغيير فلتر الزيت سابقاً">لم يتم تغيير فلتر الزيت سابقاً</option>
-    <option value="اخرى">أخرى</option>
-  </select>
-  <input id="filterOther" placeholder="اكتب حالة الفلتر" />
+    <label>الممشى الحالي</label>
+    <select id="currentKmSelect">
+      <option value="has">يوجد ممشى حالي</option>
+      <option value="none">لا يوجد ممشى حالي</option>
+      <option value="broken">العداد لا يعمل</option>
+    </select>
+    <input type="number" id="currentKm" placeholder="اكتب الممشى الحالي" />
 
-  <button id="saveBtn">حفظ / تحديث / اضافة للمتابعة اليومية</button>
-  <button id="saveSilentBtn" style="background:#6c8ebf;">حفظ / تحديث</button>
-</div>
+    <label>ممشى آخر تغيير زيت</label>
+    <select id="lastKmSelect">
+      <option value="has">يوجد عداد في آخر تغيير زيت</option>
+      <option value="no">لا يوجد عداد في آخر تغيير زيت في النظام</option>
+      <option value="never">لم يتم تغيير الزيت</option>
+      <option value="other">أخرى</option>
+    </select>
+    <input type="number" id="lastKmInput" placeholder="اكتب ممشى آخر تغيير زيت" />
+    <input id="lastKmOther" placeholder="اكتب الملاحظة" />
 
-<div class="card">
-  <h3>المتابعة اليومية</h3>
-  <div id="output"></div>
-  <div class="copy-row">
-    <button id="copyBtn">📋 نسخ الكل</button>
-    <div class="copy-dropdown-wrap">
-      <div class="copy-dropdown-toggle" id="copyFilterToggle">🎨 نسخ حسب اللون ▾</button>
-      <div class="copy-dropdown-menu" id="copyDropdownMenu">
-        <div class="color-checkboxes">
-          <label><input type="checkbox" value="🟢" /> 🟢 الزيت جديد</label>
-          <label><input type="checkbox" value="🔴" /> 🔴 تحتاج تغيير زيت</label>
-          <label><input type="checkbox" value="🟠" /> 🟠 لايوجد تغيير زيت</label>
-          <label><input type="checkbox" value="⚪" /> ⚪ لايوجد ممشى حالي</label>
-          <label><input type="checkbox" value="🔵" /> 🔵 العداد لا يعمل</label>
-          <label><input type="checkbox" value="⚫" /> ⚫ لايوجد ممشى في اخر تغيير</label>
+    <label>حالة فلتر الزيت</label>
+    <select id="filterSelect">
+      <option value="تم تغييره في آخر تغيير">تم تغييره في آخر تغيير</option>
+      <option value="تم تغييره في التغيير قبل الأخير">تم تغييره في التغيير قبل الأخير</option>
+      <option value="لم يتم تغييره في آخر تغييرين">لم يتم تغييره في آخر تغييرين</option>
+      <option value="لم يتم تغيير فلتر الزيت سابقاً">لم يتم تغيير فلتر الزيت سابقاً</option>
+      <option value="اخرى">أخرى</option>
+    </select>
+    <input id="filterOther" placeholder="اكتب حالة الفلتر" />
+
+    <button id="saveBtn">حفظ / تحديث / اضافة للمتابعة اليومية</button>
+    <button id="saveSilentBtn" style="background:#6c8ebf;">حفظ / تحديث</button>
+  </div>
+
+  <div class="card">
+    <h3>المتابعة اليومية</h3>
+    <div id="output"></div>
+    <div class="copy-row">
+      <button id="copyBtn">📋 نسخ الكل</button>
+      <div class="copy-dropdown-wrap">
+        <div class="copy-dropdown-toggle" id="copyFilterToggle">🎨 نسخ حسب اللون ▾</button>
+          <div class="copy-dropdown-menu" id="copyDropdownMenu">
+            <div class="color-checkboxes">
+              <label><input type="checkbox" value="🟢" /> 🟢 الزيت جديد</label>
+              <label><input type="checkbox" value="🔴" /> 🔴 تحتاج تغيير زيت</label>
+              <label><input type="checkbox" value="🟠" /> 🟠 لايوجد تغيير زيت</label>
+              <label><input type="checkbox" value="⚪" /> ⚪ لايوجد ممشى حالي</label>
+              <label><input type="checkbox" value="🔵" /> 🔵 العداد لا يعمل</label>
+              <label><input type="checkbox" value="⚫" /> ⚫ لايوجد ممشى في اخر تغيير</label>
+            </div>
+            <button id="copySelectedColorsBtn">📋 نسخ المحدد</button>
+          </div>
         </div>
-        <button id="copySelectedColorsBtn">📋 نسخ المحدد</button>
       </div>
     </div>
-  </div>
-</div>
 
-<div class="card">
-  <h3 id="vehicleListToggle" style="cursor:pointer; user-select:none;">المركبات المخزنة <span id="vehicleListArrow">▼</span></h3>
-  <div id="vehicleListContent" style="display:none;">
-    <div class="stored-search-bar">
-      <input id="storedSearchInput" placeholder="🔍 ابحث برقم المعدة..." />
-      <button id="storedSearchClearBtn">✕</button>
+    <div class="card">
+      <h3 id="vehicleListToggle" style="cursor:pointer; user-select:none;">المركبات المخزنة <span
+          id="vehicleListArrow">▼</span></h3>
+      <div id="vehicleListContent" style="display:none;">
+        <div class="stored-search-bar">
+          <input id="storedSearchInput" placeholder="🔍 ابحث برقم المعدة..." />
+          <button id="storedSearchClearBtn">✕</button>
+        </div>
+        <div id="vehicleList"></div>
+      </div>
     </div>
-    <div id="vehicleList"></div>
-  </div>
-</div>
 
-<div class="card">
-  <h3>تصدير البيانات</h3>
-  <label>ترتيب التصدير</label>
-  <select id="exportSortSelect">
-    <option value="type">حسب نوع المعدة</option>
-    <option value="numAsc">حسب رقم المعدة — تصاعدي</option>
-    <option value="numDesc">حسب رقم المعدة — تنازلي</option>
-    <option value="color">حسب اللون (🔴 🟠 🟢 🔵 ⚪ ⚫)</option>
-  </select>
-  <label>تصفية الألوان للتصدير</label>
-  <div class="color-checkboxes export-color-checkboxes">
-    <label><input type="checkbox" value="🟢" checked /> 🟢 الزيت جديد</label>
-    <label><input type="checkbox" value="🔴" checked /> 🔴 تحتاج تغيير زيت</label>
-    <label><input type="checkbox" value="🟠" checked /> 🟠 لايوجد تغيير زيت</label>
-    <label><input type="checkbox" value="⚪" checked /> ⚪ لايوجد ممشى حالي</label>
-    <label><input type="checkbox" value="🔵" checked /> 🔵 العداد لا يعمل</label>
-    <label><input type="checkbox" value="⚫" checked /> ⚫ لايوجد ممشى في اخر تغيير</label>
-  </div>
-  <button id="exportBtn">📊 تصدير إلى Excel</button>
-  <button id="viewTableBtn" style="background:#27ae60;margin-top:10px;">🌐 عرض في صفحة ويب</button>
-</div>
+    <div class="card">
+      <h3>تصدير البيانات</h3>
+      <label>ترتيب التصدير</label>
+      <select id="exportSortSelect">
+        <option value="type">حسب نوع المعدة</option>
+        <option value="numAsc">حسب رقم المعدة — تصاعدي</option>
+        <option value="numDesc">حسب رقم المعدة — تنازلي</option>
+        <option value="color">حسب اللون (🔴 🟠 🟢 🔵 ⚪ ⚫)</option>
+      </select>
+      <label>تصفية الألوان للتصدير</label>
+      <div class="color-checkboxes export-color-checkboxes">
+        <label><input type="checkbox" value="🟢" checked /> 🟢 الزيت جديد</label>
+        <label><input type="checkbox" value="🔴" checked /> 🔴 تحتاج تغيير زيت</label>
+        <label><input type="checkbox" value="🟠" checked /> 🟠 لايوجد تغيير زيت</label>
+        <label><input type="checkbox" value="⚪" checked /> ⚪ لايوجد ممشى حالي</label>
+        <label><input type="checkbox" value="🔵" checked /> 🔵 العداد لا يعمل</label>
+        <label><input type="checkbox" value="⚫" checked /> ⚫ لايوجد ممشى في اخر تغيير</label>
+      </div>
+      <button id="exportBtn">📊 تصدير إلى Excel</button>
+      <button id="viewTableBtn" style="background:#27ae60;margin-top:10px;">🌐 عرض في صفحة ويب</button>
+    </div>
 
-<script>
-  const darkToggle = document.getElementById("darkToggle");
-  const body = document.body;
-  if (localStorage.getItem("darkMode") === "on") {
-    body.classList.add("dark");
-    darkToggle.textContent = "☀️";
-  }
-  darkToggle.addEventListener("click", () => {
-    body.classList.toggle("dark");
-    const isDark = body.classList.contains("dark");
-    darkToggle.textContent = isDark ? "☀️" : "🌙";
-    localStorage.setItem("darkMode", isDark ? "on" : "off");
-  });
-</script>
+    <script>
+      const darkToggle = document.getElementById("darkToggle");
+      const body = document.body;
+      if (localStorage.getItem("darkMode") === "on") {
+        body.classList.add("dark");
+        darkToggle.textContent = "☀️";
+      }
+      darkToggle.addEventListener("click", () => {
+        body.classList.toggle("dark");
+        const isDark = body.classList.contains("dark");
+        darkToggle.textContent = isDark ? "☀️" : "🌙";
+        localStorage.setItem("darkMode", isDark ? "on" : "off");
+      });
+    </script>
 
 </body>
+
 </html>
