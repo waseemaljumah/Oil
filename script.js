@@ -109,12 +109,14 @@ function getStatusEmoji(type, currentKmRaw, lastKm) {
     const kmDiff = cur.value - Number(lastKm);
     const volvoTypes = ["لوبد فولفو", "قلاب فولفو", "وايت فولفو", "فولفو"];
     const heavyTypes = ["قريدر", "شيول", "بوكلين", "بلدوزر", "بوبكات", "مدحلة"];
+    const Car = ["دينا", "دينه", "سطحة", "ونش", "حافلة", "حافله"];
+
 
     if (volvoTypes.includes(type)) {
       emojis.push(kmDiff >= 5500 ? "🔴" : "🟢");
     } else if (type === "قلاب مرسيدس") {
-      emojis.push(kmDiff >= 9500 ? "🔴" : "🟢");
-    } else if (type === "دينا") {
+      emojis.push(kmDiff >= 10000 ? "🔴" : "🟢");
+    } else if (Car.includes(type)) {
       emojis.push(kmDiff >= 4500 ? "🔴" : "🟢");
     } else if (heavyTypes.includes(type)) {
       emojis.push(kmDiff >= 250 ? "🔴" : "🟢");
