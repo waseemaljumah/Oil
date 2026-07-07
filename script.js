@@ -125,7 +125,7 @@ function getStatusEmoji(type, currentKmRaw, lastKm) {
   // حساب الحالة بناءً على الممشى (أحمر أو أخضر) - فقط إذا كان هناك قيمة رقمية
   if (cur.type === "value" && !isNoKm(lastKm)) {
     const kmDiff = cur.value - Number(lastKm);
-    const volvoTypes = ["لوبد فولفو", "قلاب فولفو", "وايت فولفو", "فولفو"];
+    const volvoTypes = ["لوبد فولفو","لوبد", "قلاب فولفو", "لوبد مرسيدس","وايت فولفو", "فولفو"];
     const heavyTypes = [
       "قريدر",
       "شيول",
@@ -239,6 +239,8 @@ searchBtn.addEventListener("click", async () => {
       "قلاب فولفو",
       "لوبد فولفو",
       "وايت فولفو",
+      "لوبد",
+      "لوبد مرسيدس",
       "قلاب مرسيدس",
       "وايت",
       "دينا",
