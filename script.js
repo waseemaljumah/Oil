@@ -557,6 +557,8 @@ function renderVehicles(filterColors = null, searchTerm = "") {
         "قلاب فولفو",
         "لوبد فولفو",
         "وايت فولفو",
+              "لوبد",
+      "لوبد مرسيدس",
         "قلاب مرسيدس",
         "وايت",
         "دينا",
