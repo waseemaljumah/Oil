@@ -125,7 +125,14 @@ function getStatusEmoji(type, currentKmRaw, lastKm) {
   // حساب الحالة بناءً على الممشى (أحمر أو أخضر) - فقط إذا كان هناك قيمة رقمية
   if (cur.type === "value" && !isNoKm(lastKm)) {
     const kmDiff = cur.value - Number(lastKm);
-    const volvoTypes = ["لوبد فولفو","لوبد", "قلاب فولفو", "لوبد مرسيدس","وايت فولفو", "فولفو"];
+    const volvoTypes = [
+      "لوبد فولفو",
+      "لوبد",
+      "قلاب فولفو",
+      "لوبد مرسيدس",
+      "وايت فولفو",
+      "فولفو",
+    ];
     const heavyTypes = [
       "قريدر",
       "شيول",
@@ -316,18 +323,30 @@ searchBtn.addEventListener("click", async () => {
 // =================== حذف ===================
 deleteBtn.addEventListener("click", async () => {
   const number = document.getElementById("number").value.trim();
+
   if (!number) {
     alert("ادخل رقم المعدة للحذف");
     return;
   }
+
+  // تأكيد قبل الحذف
+  const confirmed = confirm(
+    `⚠️ هل أنت متأكد من حذف المعدة رقم ${number}؟\n\nلا يمكن التراجع عن هذا الإجراء.`
+  );
+
+  if (!confirmed) return;
+
   await deleteDoc(doc(db, "vehicles", number));
+
   for (let type in sessionVehicles) {
     sessionVehicles[type] = sessionVehicles[type].filter(
-      (v) => v.number !== number,
+      (v) => v.number !== number
     );
   }
+
   updateOutput();
   loadVehicles();
+
   alert("🗑 تم الحذف");
 });
 
@@ -464,8 +483,8 @@ function renderVehicles(filterColors = null, searchTerm = "") {
       const emojiDisplay = emojis.join(" ");
       const kmDisplay =
         v.data.currentKm === NO_KM_CURRENT ||
-          v.data.currentKm === BROKEN_CURRENT ||
-          isNoKm(v.data.lastKm)
+        v.data.currentKm === BROKEN_CURRENT ||
+        isNoKm(v.data.lastKm)
           ? "-"
           : v.data.kmSinceLastChange || 0;
 
@@ -557,8 +576,8 @@ function renderVehicles(filterColors = null, searchTerm = "") {
         "قلاب فولفو",
         "لوبد فولفو",
         "وايت فولفو",
-       "لوبد",
-      "لوبد مرسيدس",
+        "لوبد",
+        "لوبد مرسيدس",
         "قلاب مرسيدس",
         "وايت",
         "دينا",
@@ -644,8 +663,8 @@ function buildReportText(sortedTypes, grouped) {
       const emojiDisplay = emojis.join(" ");
       const kmDisplay =
         v.data.currentKm === NO_KM_CURRENT ||
-          v.data.currentKm === BROKEN_CURRENT ||
-          isNoKm(v.data.lastKm)
+        v.data.currentKm === BROKEN_CURRENT ||
+        isNoKm(v.data.lastKm)
           ? "-"
           : v.data.kmSinceLastChange || 0;
       text += `نوع المعدة: ${type}\nرقم المعدة: ${v.id} ${emojiDisplay}\nالممشى الحالي: ${v.data.currentKm}\nممشى آخر تغيير زيت: ${v.data.lastKm}\nالممشى منذ آخر تغيير: ${kmDisplay}\nتاريخ آخر تغيير زيت: ${fd}\nحالة فلتر الزيت: ${v.data.filter}\n----------------------\n`;
@@ -672,8 +691,8 @@ function updateOutput() {
       const emojiDisplay = emojis.join(" ");
       const kmDisplay =
         v.data.currentKm === NO_KM_CURRENT ||
-          v.data.currentKm === BROKEN_CURRENT ||
-          isNoKm(v.data.lastKm)
+        v.data.currentKm === BROKEN_CURRENT ||
+        isNoKm(v.data.lastKm)
           ? "-"
           : v.data.kmSinceLastChange || 0;
       text += `نوع المعدة: ${type}\nرقم المعدة: ${v.number} ${emojiDisplay}\nالممشى الحالي: ${v.data.currentKm}\nممشى آخر تغيير زيت: ${v.data.lastKm}\nالممشى منذ آخر تغيير: ${kmDisplay}\nتاريخ آخر تغيير زيت: ${fd}\nحالة فلتر الزيت: ${v.data.filter}\n----------------------\n`;
@@ -705,8 +724,8 @@ function copyByColors(selectedEmojis) {
       const emojiDisplay = emojis.join(" ");
       const kmDisplay =
         v.data.currentKm === NO_KM_CURRENT ||
-          v.data.currentKm === BROKEN_CURRENT ||
-          isNoKm(v.data.lastKm)
+        v.data.currentKm === BROKEN_CURRENT ||
+        isNoKm(v.data.lastKm)
           ? "-"
           : v.data.kmSinceLastChange || 0;
       text += `نوع المعدة: ${type}\nرقم المعدة: ${v.number} ${emojiDisplay}\nالممشى الحالي: ${v.data.currentKm}\nممشى آخر تغيير زيت: ${v.data.lastKm}\nالممشى منذ آخر تغيير: ${kmDisplay}\nتاريخ آخر تغيير زيت: ${fd}\nحالة فلتر الزيت: ${v.data.filter}\n----------------------\n`;
@@ -974,20 +993,20 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
       ws[c].s =
         ci === STATUS_CI
           ? {
-            fill: { fgColor: { rgb: cellColor } },
-            alignment: { horizontal: "center", vertical: "center" },
-            border: bThin,
-            font: {
-              bold: true,
-              color: { rgb: isDark ? "FFFFFF" : "333333" },
-            },
-          }
+              fill: { fgColor: { rgb: cellColor } },
+              alignment: { horizontal: "center", vertical: "center" },
+              border: bThin,
+              font: {
+                bold: true,
+                color: { rgb: isDark ? "FFFFFF" : "333333" },
+              },
+            }
           : {
-            fill: { fgColor: { rgb: "FFFFFF" } },
-            alignment: { horizontal: "center", vertical: "center" },
-            border: bThin,
-            font: { sz: 10 },
-          };
+              fill: { fgColor: { rgb: "FFFFFF" } },
+              alignment: { horizontal: "center", vertical: "center" },
+              border: bThin,
+              font: { sz: 10 },
+            };
     }
   });
 
