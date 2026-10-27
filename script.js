@@ -745,7 +745,8 @@ function updateOutput() {
 
     const btn = document.createElement("button");
     btn.className = "btn-delete session-del";
-    btn.textContent = "🗑 حذف من المتابعة";
+    btn.textContent = "🗑";
+    btn.title = "حذف من المتابعة";
     btn.addEventListener("click", () => {
       removeFromSession(v.number);
       updateOutput();
