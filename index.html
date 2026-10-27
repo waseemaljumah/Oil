@@ -15,12 +15,6 @@
   <!-- زر الدارك مود -->
   <button id="darkToggle">🌙</button>
 
-  <div style="text-align:center; margin-bottom:10px;">
-    <a href="cars.html"
-      style="display:inline-block;padding:8px 20px;background:#4a90e2;color:white;border-radius:20px;text-decoration:none;font-size:14px;font-weight:bold;">🚗
-      سيارات الشركة</a>
-  </div>
-
   <h2>نموذج إدخال بيانات المركبات</h2>
 
   <div class="card">
@@ -88,6 +82,17 @@
       <option value="اخرى">أخرى</option>
     </select>
     <input id="filterOther" placeholder="اكتب حالة الفلتر" />
+
+    <label>لون المعدة</label>
+    <select id="colorSelect">
+      <option value="auto">تلقائي (حسب الحساب)</option>
+      <option value="🟢">🟢 الزيت جديد</option>
+      <option value="🔴">🔴 تحتاج تغيير زيت</option>
+      <option value="🟠">🟠 لايوجد تغيير زيت</option>
+      <option value="⚪">⚪ لايوجد ممشى حالي</option>
+      <option value="🔵">🔵 العداد لا يعمل</option>
+      <option value="⚫">⚫ لايوجد ممشى في اخر تغيير</option>
+    </select>
 
     <button id="saveBtn">حفظ / تحديث / اضافة للمتابعة اليومية</button>
     <button id="saveSilentBtn" style="background:#6c8ebf;">حفظ / تحديث</button>

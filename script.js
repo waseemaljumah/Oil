@@ -44,6 +44,7 @@ const currentKmInput = document.getElementById("currentKm");
 const lastKmSelect = document.getElementById("lastKmSelect");
 const lastKmInput = document.getElementById("lastKmInput");
 const lastKmOther = document.getElementById("lastKmOther");
+const colorSelect = document.getElementById("colorSelect");
 
 const NO_KM_CURRENT = "لا يوجد ممشى حالي";
 const BROKEN_CURRENT = "العداد لا يعمل";
@@ -106,7 +107,10 @@ function isNoKm(lastKm) {
 }
 
 // =================== حساب العلامة اللونية ===================
-function getStatusEmoji(type, currentKmRaw, lastKm) {
+function getStatusEmoji(type, currentKmRaw, lastKm, manualColor) {
+  // لون يدوي يتجاوز الحساب التلقائي
+  if (manualColor && manualColor !== "auto") return [manualColor];
+
   const emojis = [];
   const cur = parseCurrentKm(currentKmRaw);
 
@@ -202,16 +206,16 @@ async function saveVehicle(addToSession) {
     lastKm: lastKmStored,
     kmSinceLastChange: kmDiff,
     filter: filterVal,
+    manualColor: colorSelect.value || "auto",
     updatedAt: new Date(),
   };
 
   await setDoc(doc(db, "vehicles", number), data);
 
   if (addToSession) {
+    // إزالة أي نسخة سابقة بنفس رقم المعدة من كل الأنواع (منع التكرار)
+    removeFromSession(number);
     if (!sessionVehicles[typeVal]) sessionVehicles[typeVal] = [];
-    sessionVehicles[typeVal] = sessionVehicles[typeVal].filter(
-      (v) => v.number !== number,
-    );
     sessionVehicles[typeVal].push({ number, data, kmDiff });
     updateOutput();
     alert("✅ تم الحفظ والإضافة للمتابعة اليومية");
@@ -281,6 +285,7 @@ searchBtn.addEventListener("click", async () => {
       filterSelect.value === "اخرى" ? "block" : "none";
 
     document.getElementById("date").value = data.date;
+    colorSelect.value = data.manualColor || "auto";
 
     if (data.currentKm === NO_KM_CURRENT) {
       currentKmSelect.value = "none";
@@ -338,11 +343,7 @@ deleteBtn.addEventListener("click", async () => {
 
   await deleteDoc(doc(db, "vehicles", number));
 
-  for (let type in sessionVehicles) {
-    sessionVehicles[type] = sessionVehicles[type].filter(
-      (v) => v.number !== number
-    );
-  }
+  removeFromSession(number);
 
   updateOutput();
   loadVehicles();
@@ -418,7 +419,7 @@ function renderVehicles(filterColors = null, searchTerm = "") {
     });
 
   const filtered = allVehiclesData.filter((v) => {
-    const emojis = getStatusEmoji(v.data.type, v.data.currentKm, v.data.lastKm);
+    const emojis = getStatusEmoji(v.data.type, v.data.currentKm, v.data.lastKm, v.data.manualColor);
     // المعدة تظهر إذا كان أي من ألوانها في الفلتر
     const colorOk =
       storedFilterEmojis.size === 0 ||
@@ -447,7 +448,7 @@ function renderVehicles(filterColors = null, searchTerm = "") {
       const emojis = getStatusEmoji(
         v.data.type,
         v.data.currentKm,
-        v.data.lastKm,
+        v.data.lastKm, v.data.manualColor
       );
       emojis.forEach((e) => {
         if (counts[e] !== undefined) counts[e]++;
@@ -478,7 +479,7 @@ function renderVehicles(filterColors = null, searchTerm = "") {
       const emojis = getStatusEmoji(
         v.data.type,
         v.data.currentKm,
-        v.data.lastKm,
+        v.data.lastKm, v.data.manualColor
       );
       const emojiDisplay = emojis.join(" ");
       const kmDisplay =
@@ -552,11 +553,7 @@ function renderVehicles(filterColors = null, searchTerm = "") {
       const id = btn.dataset.id;
       if (!confirm(`هل تريد حذف المعدة رقم ${id}؟`)) return;
       await deleteDoc(doc(db, "vehicles", id));
-      for (let type in sessionVehicles) {
-        sessionVehicles[type] = sessionVehicles[type].filter(
-          (v) => v.number !== id,
-        );
-      }
+      removeFromSession(id);
       updateOutput();
       loadVehicles();
       alert("🗑 تم الحذف");
@@ -611,6 +608,7 @@ function renderVehicles(filterColors = null, searchTerm = "") {
         filterSelect.value === "اخرى" ? "block" : "none";
 
       document.getElementById("date").value = data.date;
+    colorSelect.value = data.manualColor || "auto";
 
       if (data.currentKm === NO_KM_CURRENT) {
         currentKmSelect.value = "none";
@@ -659,7 +657,7 @@ function buildReportText(sortedTypes, grouped) {
     grouped[type].forEach((v) => {
       const dp = v.data.date ? v.data.date.split("-") : [];
       const fd = dp.length === 3 ? `${dp[0]}/${dp[1]}/${dp[2]}` : v.data.date;
-      const emojis = getStatusEmoji(type, v.data.currentKm, v.data.lastKm);
+      const emojis = getStatusEmoji(type, v.data.currentKm, v.data.lastKm, v.data.manualColor);
       const emojiDisplay = emojis.join(" ");
       const kmDisplay =
         v.data.currentKm === NO_KM_CURRENT ||
@@ -673,70 +671,100 @@ function buildReportText(sortedTypes, grouped) {
   return text;
 }
 
-// =================== تحديث المتابعة اليومية ===================
-function updateOutput() {
-  const today = new Date();
-  const todayFormatted = `${today.getFullYear()}/${String(today.getMonth() + 1).padStart(2, "0")}/${String(today.getDate()).padStart(2, "0")}`;
-  let text = `المتابعة اليومية للزيوت / تاريخ: ${todayFormatted}\n\n`;
-  const sortedTypes = Object.keys(sessionVehicles).sort();
-  sortedTypes.forEach((type) => {
-    sessionVehicles[type].sort(
-      (a, b) =>
-        (b.data.kmSinceLastChange || 0) - (a.data.kmSinceLastChange || 0),
+// =================== المتابعة اليومية ===================
+function removeFromSession(number) {
+  for (const type in sessionVehicles) {
+    sessionVehicles[type] = sessionVehicles[type].filter(
+      (v) => String(v.number) !== String(number),
     );
-    sessionVehicles[type].forEach((v) => {
-      const dp = v.data.date ? v.data.date.split("-") : [];
-      const fd = dp.length === 3 ? `${dp[0]}/${dp[1]}/${dp[2]}` : v.data.date;
-      const emojis = getStatusEmoji(type, v.data.currentKm, v.data.lastKm);
-      const emojiDisplay = emojis.join(" ");
-      const kmDisplay =
-        v.data.currentKm === NO_KM_CURRENT ||
-        v.data.currentKm === BROKEN_CURRENT ||
-        isNoKm(v.data.lastKm)
-          ? "-"
-          : v.data.kmSinceLastChange || 0;
-      text += `نوع المعدة: ${type}\nرقم المعدة: ${v.number} ${emojiDisplay}\nالممشى الحالي: ${v.data.currentKm}\nممشى آخر تغيير زيت: ${v.data.lastKm}\nالممشى منذ آخر تغيير: ${kmDisplay}\nتاريخ آخر تغيير زيت: ${fd}\nحالة فلتر الزيت: ${v.data.filter}\n----------------------\n`;
+    if (!sessionVehicles[type].length) delete sessionVehicles[type];
+  }
+}
+
+function todayText() {
+  const t = new Date();
+  return `${t.getFullYear()}/${String(t.getMonth() + 1).padStart(2, "0")}/${String(t.getDate()).padStart(2, "0")}`;
+}
+
+function buildEntryText(type, v) {
+  const dp = v.data.date ? v.data.date.split("-") : [];
+  const fd = dp.length === 3 ? `${dp[0]}/${dp[1]}/${dp[2]}` : v.data.date;
+  const emojis = getStatusEmoji(type, v.data.currentKm, v.data.lastKm, v.data.manualColor);
+  const emojiDisplay = emojis.join(" ");
+  const kmDisplay =
+    v.data.currentKm === NO_KM_CURRENT ||
+    v.data.currentKm === BROKEN_CURRENT ||
+    isNoKm(v.data.lastKm)
+      ? "-"
+      : v.data.kmSinceLastChange || 0;
+  return `نوع المعدة: ${type}\nرقم المعدة: ${v.number} ${emojiDisplay}\nالممشى الحالي: ${v.data.currentKm}\nممشى آخر تغيير زيت: ${v.data.lastKm}\nالممشى منذ آخر تغيير: ${kmDisplay}\nتاريخ آخر تغيير زيت: ${fd}\nحالة فلتر الزيت: ${v.data.filter}\n----------------------\n`;
+}
+
+// يرجع قائمة مرتبة [{type, v}] للمتابعة اليومية (مع تصفية اختيارية بالألوان)
+function getSessionEntries(emojiSet = null) {
+  const entries = [];
+  Object.keys(sessionVehicles)
+    .sort()
+    .forEach((type) => {
+      let list = [...sessionVehicles[type]];
+      if (emojiSet) {
+        list = list.filter((v) =>
+          getStatusEmoji(type, v.data.currentKm, v.data.lastKm, v.data.manualColor).some((e) => emojiSet.has(e)),
+        );
+      }
+      list.sort(
+        (a, b) => (b.data.kmSinceLastChange || 0) - (a.data.kmSinceLastChange || 0),
+      );
+      list.forEach((v) => entries.push({ type, v }));
     });
+  return entries;
+}
+
+function buildSessionText(emojiSet = null) {
+  let text = `المتابعة اليومية للزيوت / تاريخ: ${todayText()}\n\n`;
+  getSessionEntries(emojiSet).forEach(({ type, v }) => {
+    text += buildEntryText(type, v);
   });
-  outputDiv.innerText = text.trim();
+  return text.trim();
+}
+
+function updateOutput() {
+  outputDiv.innerHTML = "";
+  const head = document.createElement("div");
+  head.className = "session-head";
+  head.textContent = `المتابعة اليومية للزيوت / تاريخ: ${todayText()}`;
+  outputDiv.appendChild(head);
+
+  getSessionEntries().forEach(({ type, v }) => {
+    const item = document.createElement("div");
+    item.className = "session-item";
+
+    const txt = document.createElement("div");
+    txt.className = "session-text";
+    txt.textContent = buildEntryText(type, v).replace(/-{5,}\n?$/, "").trim();
+
+    const btn = document.createElement("button");
+    btn.className = "btn-delete session-del";
+    btn.textContent = "🗑 حذف من المتابعة";
+    btn.addEventListener("click", () => {
+      removeFromSession(v.number);
+      updateOutput();
+    });
+
+    item.appendChild(txt);
+    item.appendChild(btn);
+    outputDiv.appendChild(item);
+  });
 }
 
 // =================== نسخ حسب اللون (متعدد الاختيار) ===================
 function copyByColors(selectedEmojis) {
-  const emojiSet = new Set(selectedEmojis);
-  const today = new Date();
-  const todayFormatted = `${today.getFullYear()}/${String(today.getMonth() + 1).padStart(2, "0")}/${String(today.getDate()).padStart(2, "0")}`;
-  let text = `المتابعة اليومية للزيوت / تاريخ: ${todayFormatted}\n\n`;
-  const sortedTypes = Object.keys(sessionVehicles).sort();
-  sortedTypes.forEach((type) => {
-    const filtered = sessionVehicles[type].filter((v) => {
-      const emojis = getStatusEmoji(type, v.data.currentKm, v.data.lastKm);
-      return emojis.some((e) => emojiSet.has(e));
-    });
-    filtered.sort(
-      (a, b) =>
-        (b.data.kmSinceLastChange || 0) - (a.data.kmSinceLastChange || 0),
-    );
-    filtered.forEach((v) => {
-      const dp = v.data.date ? v.data.date.split("-") : [];
-      const fd = dp.length === 3 ? `${dp[0]}/${dp[1]}/${dp[2]}` : v.data.date;
-      const emojis = getStatusEmoji(type, v.data.currentKm, v.data.lastKm);
-      const emojiDisplay = emojis.join(" ");
-      const kmDisplay =
-        v.data.currentKm === NO_KM_CURRENT ||
-        v.data.currentKm === BROKEN_CURRENT ||
-        isNoKm(v.data.lastKm)
-          ? "-"
-          : v.data.kmSinceLastChange || 0;
-      text += `نوع المعدة: ${type}\nرقم المعدة: ${v.number} ${emojiDisplay}\nالممشى الحالي: ${v.data.currentKm}\nممشى آخر تغيير زيت: ${v.data.lastKm}\nالممشى منذ آخر تغيير: ${kmDisplay}\nتاريخ آخر تغيير زيت: ${fd}\nحالة فلتر الزيت: ${v.data.filter}\n----------------------\n`;
-    });
-  });
-  navigator.clipboard.writeText(text.trim());
+  navigator.clipboard.writeText(buildSessionText(new Set(selectedEmojis)));
   alert("تم النسخ");
 }
 
 copyBtn.addEventListener("click", () => {
-  navigator.clipboard.writeText(outputDiv.innerText);
+  navigator.clipboard.writeText(buildSessionText());
   alert("تم النسخ");
 });
 
@@ -808,6 +836,7 @@ function clearForm() {
   filterSelect.value = "تم تغييره في آخر تغيير";
   filterOther.value = "";
   filterOther.style.display = "none";
+  colorSelect.value = "auto";
 }
 
 // =================== تصدير Excel ===================
@@ -837,7 +866,7 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
         : "-";
     const dp = d.date ? d.date.split("-") : [];
     const fd = dp.length === 3 ? `${dp[2]}/${dp[1]}/${dp[0]}` : d.date || "";
-    const emojis = getStatusEmoji(d.type, d.currentKm, d.lastKm);
+    const emojis = getStatusEmoji(d.type, d.currentKm, d.lastKm, d.manualColor);
 
     // المعدة تظهر إذا كان أي من ألوانها في الفلتر
     const hasMatchingColor = emojis.some((e) => exportColors.has(e));
@@ -1041,7 +1070,7 @@ document.getElementById("viewTableBtn").addEventListener("click", async () => {
         : "-";
     const dp = d.date ? d.date.split("-") : [];
     const fd = dp.length === 3 ? `${dp[2]}/${dp[1]}/${dp[0]}` : d.date || "";
-    const emojis = getStatusEmoji(d.type, d.currentKm, d.lastKm);
+    const emojis = getStatusEmoji(d.type, d.currentKm, d.lastKm, d.manualColor);
 
     const hasMatchingColor = emojis.some((e) => exportColors.has(e));
     if (hasMatchingColor) {

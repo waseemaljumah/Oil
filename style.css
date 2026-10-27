@@ -505,3 +505,19 @@ body.dark .stored-filter-checks label {
   color: #e2e8f0;
 }
 body.dark .stored-filter-checks label:hover { background: #4a5a6c; }
+/* ===== عناصر المتابعة اليومية ===== */
+.session-head { font-weight: bold; margin-bottom: 10px; }
+.session-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px;
+  margin-bottom: 8px;
+  background: #f9f9f9;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+}
+.session-text { white-space: pre-wrap; line-height: 1.7; font-size: 14px; }
+.session-del { flex-shrink: 0; }
+body.dark .session-item { background: #2d3748; border-color: #4a5568; }
