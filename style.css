@@ -519,8 +519,23 @@ body.dark .stored-filter-checks label:hover { background: #4a5a6c; }
   border-radius: 8px;
 }
 .session-text { white-space: pre-wrap; line-height: 1.7; font-size: 14px; }
-.session-item .session-del {
+
+body.dark .session-item { background: #2d3748; border-color: #4a5568; }
+
+.session-check {
+  width: auto;
+  margin: 3px 0 0;
+  padding: 0;
   flex-shrink: 0;
+  cursor: pointer;
+}
+.session-text { flex: 1; }
+.session-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.session-item .session-mini {
   width: auto;
   margin: 0;
   padding: 2px 7px;
@@ -528,4 +543,33 @@ body.dark .stored-filter-checks label:hover { background: #4a5a6c; }
   line-height: 1.4;
   border-radius: 5px;
 }
-body.dark .session-item { background: #2d3748; border-color: #4a5568; }
+
+/* ===== النموذج: صفوف جنب بعض ===== */
+.form-row {
+  display: flex;
+  gap: 8px;
+}
+.form-col {
+  flex: 1;
+  min-width: 0;
+}
+.form-row.compact select,
+.form-row.compact input {
+  font-size: 12px;
+  padding: 5px 6px;
+  margin: 4px 0;
+}
+.form-row.compact label { font-size: 12px; }
+.km-diff-box {
+  margin: 4px 0 8px;
+  padding: 6px 10px;
+  background: #eef5fd;
+  border: 1px dashed #4a90e2;
+  border-radius: 6px;
+  font-size: 14px;
+  text-align: center;
+}
+.km-diff-box b { font-size: 16px; }
+body.dark .km-diff-box { background: #2d3748; border-color: #4a90e2; }
+
+.copy-row > #copyCheckedBtn { flex: 1; margin: 0; }

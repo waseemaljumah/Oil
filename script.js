@@ -81,6 +81,28 @@ lastKmOther.style.display = "none";
 
 let sessionVehicles = {};
 let allVehiclesData = [];
+const selectedSession = new Set(); // أرقام المعدات المحددة بالـ checkbox في المتابعة اليومية
+
+// =================== الممشى منذ آخر تغيير (مباشر) ===================
+function updateKmDiffLive() {
+  const el = document.getElementById("kmDiffLive");
+  if (!el) return;
+  if (
+    currentKmSelect.value !== "has" ||
+    lastKmSelect.value !== "has" ||
+    currentKmInput.value === "" ||
+    lastKmInput.value === "" ||
+    !Number(lastKmInput.value)
+  ) {
+    el.textContent = "-";
+    return;
+  }
+  el.textContent = Number(currentKmInput.value) - Number(lastKmInput.value);
+}
+[currentKmSelect, currentKmInput, lastKmSelect, lastKmInput].forEach((el) => {
+  el.addEventListener("input", updateKmDiffLive);
+  el.addEventListener("change", updateKmDiffLive);
+});
 
 // =================== تحليل الممشى الحالي ===================
 function parseCurrentKm(currentKmRaw) {
@@ -319,6 +341,7 @@ searchBtn.addEventListener("click", async () => {
       lastKmOther.value = data.lastKm;
     }
 
+    updateKmDiffLive();
     alert("📦 تم تحميل البيانات");
   } else {
     alert("❌ المركبة غير موجودة");
@@ -642,6 +665,7 @@ function renderVehicles(filterColors = null, searchTerm = "") {
         lastKmOther.value = data.lastKm;
       }
 
+      updateKmDiffLive();
       window.scrollTo({ top: 0, behavior: "smooth" });
       alert("✏️ تم تحميل البيانات للتعديل، عدّل ثم اضغط حفظ/تحديث");
     });
@@ -673,6 +697,7 @@ function buildReportText(sortedTypes, grouped) {
 
 // =================== المتابعة اليومية ===================
 function removeFromSession(number) {
+  selectedSession.delete(String(number));
   for (const type in sessionVehicles) {
     sessionVehicles[type] = sessionVehicles[type].filter(
       (v) => String(v.number) !== String(number),
@@ -728,6 +753,10 @@ function buildSessionText(emojiSet = null) {
   return text.trim();
 }
 
+function entryCopyText(type, v) {
+  return buildEntryText(type, v).replace(/-{5,}\n?$/, "").trim();
+}
+
 function updateOutput() {
   outputDiv.innerHTML = "";
   const head = document.createElement("div");
@@ -739,24 +768,68 @@ function updateOutput() {
     const item = document.createElement("div");
     item.className = "session-item";
 
+    const chk = document.createElement("input");
+    chk.type = "checkbox";
+    chk.className = "session-check";
+    chk.title = "تحديد للنسخ";
+    chk.checked = selectedSession.has(String(v.number));
+    chk.addEventListener("change", () => {
+      if (chk.checked) selectedSession.add(String(v.number));
+      else selectedSession.delete(String(v.number));
+    });
+
     const txt = document.createElement("div");
     txt.className = "session-text";
-    txt.textContent = buildEntryText(type, v).replace(/-{5,}\n?$/, "").trim();
+    txt.textContent = entryCopyText(type, v);
 
-    const btn = document.createElement("button");
-    btn.className = "btn-delete session-del";
-    btn.textContent = "🗑";
-    btn.title = "حذف من المتابعة";
-    btn.addEventListener("click", () => {
+    const actions = document.createElement("div");
+    actions.className = "session-actions";
+
+    const copyOne = document.createElement("button");
+    copyOne.className = "session-mini session-copy";
+    copyOne.textContent = "📋";
+    copyOne.title = "نسخ هذه المعدة";
+    copyOne.addEventListener("click", () => {
+      navigator.clipboard.writeText(entryCopyText(type, v));
+      copyOne.textContent = "✔";
+      setTimeout(() => (copyOne.textContent = "📋"), 1000);
+    });
+
+    const del = document.createElement("button");
+    del.className = "session-mini btn-delete session-del";
+    del.textContent = "🗑";
+    del.title = "حذف من المتابعة";
+    del.addEventListener("click", () => {
       removeFromSession(v.number);
       updateOutput();
     });
 
+    actions.appendChild(copyOne);
+    actions.appendChild(del);
+
+    item.appendChild(chk);
     item.appendChild(txt);
-    item.appendChild(btn);
+    item.appendChild(actions);
     outputDiv.appendChild(item);
   });
 }
+
+// =================== نسخ المحدد (checkbox) ===================
+document.getElementById("copyCheckedBtn").addEventListener("click", () => {
+  const entries = getSessionEntries().filter(({ v }) =>
+    selectedSession.has(String(v.number)),
+  );
+  if (!entries.length) {
+    alert("حدد معدة واحدة على الأقل");
+    return;
+  }
+  let text = `المتابعة اليومية للزيوت / تاريخ: ${todayText()}\n\n`;
+  entries.forEach(({ type, v }) => {
+    text += buildEntryText(type, v);
+  });
+  navigator.clipboard.writeText(text.trim());
+  alert("تم النسخ");
+});
 
 // =================== نسخ حسب اللون (متعدد الاختيار) ===================
 function copyByColors(selectedEmojis) {
@@ -773,6 +846,11 @@ copyBtn.addEventListener("click", () => {
 document.getElementById("copyFilterToggle").addEventListener("click", (e) => {
   e.stopPropagation();
   document.getElementById("copyDropdownMenu").classList.toggle("open");
+});
+
+// النقر داخل القائمة (على الألوان) لا يغلقها؛ تُغلق فقط بزر النسخ أو بالنقر خارجها
+document.getElementById("copyDropdownMenu").addEventListener("click", (e) => {
+  e.stopPropagation();
 });
 
 document
@@ -838,6 +916,7 @@ function clearForm() {
   filterOther.value = "";
   filterOther.style.display = "none";
   colorSelect.value = "auto";
+  updateKmDiffLive();
 }
 
 // =================== تصدير Excel ===================

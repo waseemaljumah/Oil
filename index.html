@@ -55,44 +55,56 @@
     <label>تاريخ آخر تغيير زيت</label>
     <input type="date" id="date" />
 
-    <label>الممشى الحالي</label>
-    <select id="currentKmSelect">
-      <option value="has">يوجد ممشى حالي</option>
-      <option value="none">لا يوجد ممشى حالي</option>
-      <option value="broken">العداد لا يعمل</option>
-    </select>
-    <input type="number" id="currentKm" placeholder="اكتب الممشى الحالي" />
+    <div class="form-row">
+      <div class="form-col">
+        <label>الممشى الحالي</label>
+        <select id="currentKmSelect">
+          <option value="has">يوجد ممشى حالي</option>
+          <option value="none">لا يوجد ممشى حالي</option>
+          <option value="broken">العداد لا يعمل</option>
+        </select>
+        <input type="number" id="currentKm" placeholder="الممشى الحالي" />
+      </div>
+      <div class="form-col">
+        <label>ممشى آخر تغيير زيت</label>
+        <select id="lastKmSelect">
+          <option value="has">يوجد عداد في آخر تغيير</option>
+          <option value="no">لا يوجد عداد في آخر تغيير</option>
+          <option value="never">لم يتم تغيير الزيت</option>
+          <option value="other">أخرى</option>
+        </select>
+        <input type="number" id="lastKmInput" placeholder="ممشى آخر تغيير" />
+        <input id="lastKmOther" placeholder="اكتب الملاحظة" />
+      </div>
+    </div>
 
-    <label>ممشى آخر تغيير زيت</label>
-    <select id="lastKmSelect">
-      <option value="has">يوجد عداد في آخر تغيير زيت</option>
-      <option value="no">لا يوجد عداد في آخر تغيير زيت في النظام</option>
-      <option value="never">لم يتم تغيير الزيت</option>
-      <option value="other">أخرى</option>
-    </select>
-    <input type="number" id="lastKmInput" placeholder="اكتب ممشى آخر تغيير زيت" />
-    <input id="lastKmOther" placeholder="اكتب الملاحظة" />
+    <div class="km-diff-box">الممشى منذ آخر تغيير: <b id="kmDiffLive">-</b></div>
 
-    <label>حالة فلتر الزيت</label>
-    <select id="filterSelect">
-      <option value="تم تغييره في آخر تغيير">تم تغييره في آخر تغيير</option>
-      <option value="تم تغييره في التغيير قبل الأخير">تم تغييره في التغيير قبل الأخير</option>
-      <option value="لم يتم تغييره في آخر تغييرين">لم يتم تغييره في آخر تغييرين</option>
-      <option value="لم يتم تغيير فلتر الزيت سابقاً">لم يتم تغيير فلتر الزيت سابقاً</option>
-      <option value="اخرى">أخرى</option>
-    </select>
-    <input id="filterOther" placeholder="اكتب حالة الفلتر" />
-
-    <label>لون المعدة</label>
-    <select id="colorSelect">
-      <option value="auto">تلقائي (حسب الحساب)</option>
-      <option value="🟢">🟢 الزيت جديد</option>
-      <option value="🔴">🔴 تحتاج تغيير زيت</option>
-      <option value="🟠">🟠 لايوجد تغيير زيت</option>
-      <option value="⚪">⚪ لايوجد ممشى حالي</option>
-      <option value="🔵">🔵 العداد لا يعمل</option>
-      <option value="⚫">⚫ لايوجد ممشى في اخر تغيير</option>
-    </select>
+    <div class="form-row compact">
+      <div class="form-col">
+        <label>حالة فلتر الزيت</label>
+        <select id="filterSelect">
+          <option value="تم تغييره في آخر تغيير">تم تغييره في آخر تغيير</option>
+          <option value="تم تغييره في التغيير قبل الأخير">تم تغييره في التغيير قبل الأخير</option>
+          <option value="لم يتم تغييره في آخر تغييرين">لم يتم تغييره في آخر تغييرين</option>
+          <option value="لم يتم تغيير فلتر الزيت سابقاً">لم يتم تغيير فلتر الزيت سابقاً</option>
+          <option value="اخرى">أخرى</option>
+        </select>
+        <input id="filterOther" placeholder="اكتب حالة الفلتر" />
+      </div>
+      <div class="form-col">
+        <label>لون المعدة</label>
+        <select id="colorSelect">
+          <option value="auto">تلقائي</option>
+          <option value="🟢">🟢 الزيت جديد</option>
+          <option value="🔴">🔴 تحتاج تغيير زيت</option>
+          <option value="🟠">🟠 لايوجد تغيير زيت</option>
+          <option value="⚪">⚪ لايوجد ممشى حالي</option>
+          <option value="🔵">🔵 العداد لا يعمل</option>
+          <option value="⚫">⚫ لايوجد ممشى في اخر تغيير</option>
+        </select>
+      </div>
+    </div>
 
     <button id="saveBtn">حفظ / تحديث / اضافة للمتابعة اليومية</button>
     <button id="saveSilentBtn" style="background:#6c8ebf;">حفظ / تحديث</button>
@@ -103,8 +115,9 @@
     <div id="output"></div>
     <div class="copy-row">
       <button id="copyBtn">📋 نسخ الكل</button>
+      <button id="copyCheckedBtn">☑️ نسخ المحدد</button>
       <div class="copy-dropdown-wrap">
-        <div class="copy-dropdown-toggle" id="copyFilterToggle">🎨 نسخ حسب اللون ▾</button>
+        <button type="button" class="copy-dropdown-toggle" id="copyFilterToggle">🎨 نسخ حسب اللون ▾</button>
           <div class="copy-dropdown-menu" id="copyDropdownMenu">
             <div class="color-checkboxes">
               <label><input type="checkbox" value="🟢" /> 🟢 الزيت جديد</label>
@@ -114,9 +127,8 @@
               <label><input type="checkbox" value="🔵" /> 🔵 العداد لا يعمل</label>
               <label><input type="checkbox" value="⚫" /> ⚫ لايوجد ممشى في اخر تغيير</label>
             </div>
-            <button id="copySelectedColorsBtn">📋 نسخ المحدد</button>
+            <button id="copySelectedColorsBtn">📋 نسخ الألوان المحددة</button>
           </div>
-        </div>
       </div>
     </div>
 
