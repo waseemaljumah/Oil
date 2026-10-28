@@ -83,10 +83,13 @@ let sessionVehicles = {};
 let allVehiclesData = [];
 const selectedSession = new Set(); // أرقام المعدات المحددة بالـ checkbox في المتابعة اليومية
 
-// =================== الممشى منذ آخر تغيير (مباشر) ===================
+// =================== الممشى منذ آخر تغيير + اللون (مباشر) ===================
 function updateKmDiffLive() {
-  const el = document.getElementById("kmDiffLive");
-  if (!el) return;
+  const diffEl = document.getElementById("kmDiffLive");
+  const colorEl = document.getElementById("colorLive");
+  if (!diffEl) return;
+
+  // الممشى منذ آخر تغيير
   if (
     currentKmSelect.value !== "has" ||
     lastKmSelect.value !== "has" ||
@@ -94,15 +97,49 @@ function updateKmDiffLive() {
     lastKmInput.value === "" ||
     !Number(lastKmInput.value)
   ) {
-    el.textContent = "-";
-    return;
+    diffEl.textContent = "-";
+  } else {
+    diffEl.textContent = Number(currentKmInput.value) - Number(lastKmInput.value);
   }
-  el.textContent = Number(currentKmInput.value) - Number(lastKmInput.value);
+
+  // اللون (نفس منطق الحفظ)
+  const typeVal =
+    typeSelect.value === "اخرى" ? typeOther.value : typeSelect.value;
+  let curStored;
+  if (currentKmSelect.value === "none") curStored = NO_KM_CURRENT;
+  else if (currentKmSelect.value === "broken") curStored = BROKEN_CURRENT;
+  else curStored = Number(currentKmInput.value) || 0;
+
+  let lastStored;
+  const lk = lastKmSelect.value;
+  if (lk === "no") lastStored = NO_KM_LAST;
+  else if (lk === "never") lastStored = NEVER_CHANGED;
+  else if (lk === "other") lastStored = lastKmOther.value || NO_KM_LAST;
+  else lastStored = Number(lastKmInput.value) || 0;
+
+  const autoEmojis = getStatusEmoji(typeVal, curStored, lastStored, "auto").join("");
+  // خيار "تلقائي" يعرض اللون المحسوب
+  colorSelect.options[0].textContent = `تلقائي ${autoEmojis}`;
+  // اللون النهائي (اليدوي إن وُجد)
+  if (colorEl) {
+    colorEl.textContent =
+      colorSelect.value === "auto" ? autoEmojis : colorSelect.value;
+  }
 }
-[currentKmSelect, currentKmInput, lastKmSelect, lastKmInput].forEach((el) => {
+[
+  typeSelect,
+  typeOther,
+  currentKmSelect,
+  currentKmInput,
+  lastKmSelect,
+  lastKmInput,
+  lastKmOther,
+  colorSelect,
+].forEach((el) => {
   el.addEventListener("input", updateKmDiffLive);
   el.addEventListener("change", updateKmDiffLive);
 });
+updateKmDiffLive();
 
 // =================== تحليل الممشى الحالي ===================
 function parseCurrentKm(currentKmRaw) {
