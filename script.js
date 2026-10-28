@@ -293,14 +293,12 @@ saveBtn.addEventListener("click", () => saveVehicle(true));
 saveSilentBtn.addEventListener("click", () => saveVehicle(false));
 
 // =================== البحث ===================
-searchBtn.addEventListener("click", async () => {
-  const number = document.getElementById("number").value.trim();
-  if (!number) {
-    alert("ادخل رقم المعدة للبحث");
-    return;
-  }
-
+// تحميل بيانات معدة في النموذج. silent = بدون رسائل (للتحميل التلقائي). يرجع true إذا وُجدت.
+async function loadVehicle(number, silent) {
   const docSnap = await getDoc(doc(db, "vehicles", number));
+  if (silent && document.getElementById("number").value.trim() !== number) {
+    return null; // تغيّر الرقم أثناء الانتظار
+  }
   if (docSnap.exists()) {
     const data = docSnap.data();
     document.getElementById("number").value = number;
@@ -379,10 +377,52 @@ searchBtn.addEventListener("click", async () => {
     }
 
     updateKmDiffLive();
-    alert("📦 تم تحميل البيانات");
+    if (!silent) alert("📦 تم تحميل البيانات");
+    return true;
   } else {
-    alert("❌ المركبة غير موجودة");
+    if (!silent) alert("❌ المركبة غير موجودة");
+    return false;
   }
+}
+
+searchBtn.addEventListener("click", () => {
+  const number = document.getElementById("number").value.trim();
+  if (!number) {
+    alert("ادخل رقم المعدة للبحث");
+    return;
+  }
+  loadVehicle(number, false);
+});
+
+// =================== تحميل تلقائي عند كتابة رقم المعدة ===================
+let autoLoadTimer = null;
+let autoLoaded = false; // هل البيانات الحالية في النموذج جاءت من تحميل تلقائي؟
+document.getElementById("number").addEventListener("input", () => {
+  clearTimeout(autoLoadTimer);
+  autoLoadTimer = setTimeout(async () => {
+    const numberEl = document.getElementById("number");
+    const number = numberEl.value.trim();
+    if (!number) {
+      if (autoLoaded) {
+        clearForm();
+        autoLoaded = false;
+      }
+      return;
+    }
+    try {
+      const found = await loadVehicle(number, true);
+      if (found === true) {
+        autoLoaded = true;
+      } else if (found === false && autoLoaded) {
+        // رقم جديد غير موجود: نفرّغ بيانات المعدة السابقة ونُبقي الرقم
+        clearForm();
+        numberEl.value = number;
+        autoLoaded = false;
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }, 400);
 });
 
 // =================== حذف ===================
