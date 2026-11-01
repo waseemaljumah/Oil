@@ -422,7 +422,7 @@ document.getElementById("number").addEventListener("input", () => {
     } catch (err) {
       console.error(err);
     }
-  }, 400);
+  }, 0);
 });
 
 // =================== حذف ===================
