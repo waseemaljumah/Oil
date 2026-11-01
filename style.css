@@ -574,3 +574,133 @@ body.dark .session-item { background: #2d3748; border-color: #4a5568; }
 body.dark .km-diff-box { background: #2d3748; border-color: #4a90e2; }
 
 .copy-row > #copyCheckedBtn { flex: 1; margin: 0; }
+
+/* =================== الناف بار =================== */
+body { padding-top: 0; }
+#navbar {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 -20px 18px;
+  padding: 8px 16px;
+  background: #1a202c;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+}
+.nav-brand { font-weight: bold; white-space: nowrap; }
+.nav-links {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.nav-links::-webkit-scrollbar { display: none; }
+.nav-links a {
+  color: #cbd5e0;
+  text-decoration: none;
+  padding: 7px 12px;
+  border-radius: 8px;
+  white-space: nowrap;
+  font-size: 14px;
+}
+.nav-links a:hover { background: #2d3748; color: #fff; }
+.nav-links a.active { background: #4a90e2; color: #fff; font-weight: bold; }
+.nav-actions { display: flex; gap: 6px; align-items: center; }
+.nav-actions button {
+  width: auto;
+  margin: 0;
+  padding: 6px 12px;
+  font-size: 13px;
+  border: none;
+  border-radius: 8px;
+}
+#navbar #darkToggle {
+  position: static;
+  box-shadow: none;
+  font-size: 16px;
+  padding: 6px 10px;
+}
+#logoutNavBtn { background: #e05555; }
+#logoutNavBtn:hover { background: #c94444; }
+
+/* =================== الصفحات والصلاحيات =================== */
+.page { display: none; }
+.page.active { display: block; }
+main { max-width: 1100px; margin: 0 auto; }
+body:not(.is-admin) .admin-only { display: none !important; }
+body.is-admin .guest-only { display: none !important; }
+body.auth-pending main { visibility: hidden; }
+
+/* =================== بحث الزائر =================== */
+.hint { font-size: 12px; color: #718096; text-align: center; margin: 10px 0 0; }
+.guest-empty { text-align: center; color: #718096; padding: 12px; }
+.guest-record { margin-top: 10px; }
+
+/* =================== المتابعات المحفوظة =================== */
+.followup-status {
+  display: none;
+  margin-bottom: 8px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: #e8f1fc;
+  color: #1a4f8b;
+  font-size: 13px;
+  text-align: center;
+}
+.followup-actions { margin-top: 10px; }
+.followup-actions button { flex: 1; margin: 0; }
+.btn-green { background: #27ae60; }
+.btn-green:hover { background: #1f8f4e; }
+.btn-gray { background: #718096; }
+.btn-gray:hover { background: #5a677a; }
+
+.followup-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px;
+  margin-bottom: 10px;
+  background: #f9f9f9;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+}
+.followup-info { flex: 1; min-width: 220px; }
+.followup-title { font-weight: bold; font-size: 16px; }
+.followup-meta { font-size: 12px; color: #718096; margin-top: 2px; }
+.followup-nums { font-size: 12px; color: #4a5568; margin-top: 4px; word-break: break-word; }
+.followup-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+.followup-btns button { width: auto; margin: 0; }
+
+/* =================== نافذة الدخول =================== */
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  padding: 16px;
+}
+.modal[hidden] { display: none; }
+.modal-box {
+  background: #fff;
+  width: 100%;
+  max-width: 360px;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+}
+.login-error { color: #e05555; font-size: 13px; min-height: 18px; text-align: center; }
+
+body.dark .modal-box { background: #2d3748; }
+body.dark .followup-card { background: #2d3748; border-color: #4a5568; }
+body.dark .followup-nums { color: #cbd5e0; }
+body.dark .followup-status { background: #2a4365; color: #bee3f8; }
+body.dark .hint, body.dark .guest-empty { color: #a0aec0; }

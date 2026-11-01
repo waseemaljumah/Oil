@@ -8,6 +8,12 @@ import {
   collection,
   getDocs,
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+import {
+  getAuth,
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCN4t4vm_w93wV2ZSLHKyzOehXslkTxQCM",
@@ -21,6 +27,8 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const auth = getAuth(app);
+let isAdmin = false; // يتحدد من حالة تسجيل الدخول
 
 const saveBtn = document.getElementById("saveBtn");
 const saveSilentBtn = document.getElementById("saveSilentBtn");
@@ -453,6 +461,7 @@ deleteBtn.addEventListener("click", async () => {
 
 // =================== تحميل المركبات ===================
 async function loadVehicles() {
+  if (!isAdmin) return;
   const querySnapshot = await getDocs(collection(db, "vehicles"));
   allVehiclesData = [];
   querySnapshot.forEach((docItem) => {
@@ -835,6 +844,7 @@ function entryCopyText(type, v) {
 }
 
 function updateOutput() {
+  if (typeof scheduleAutosave === "function") scheduleAutosave();
   outputDiv.innerHTML = "";
   const head = document.createElement("div");
   head.className = "session-head";
@@ -1278,4 +1288,461 @@ document.getElementById("viewTableBtn").addEventListener("click", async () => {
   window.open("table-view.html", "_blank");
 });
 
-loadVehicles();
+// =====================================================================
+//                    الصفحات (Navbar) + تسجيل الدخول
+// =====================================================================
+let authReady = false;
+const PAGES = ["home", "vehicles", "followups", "export"];
+const ADMIN_PAGES = new Set(["vehicles", "followups", "export"]);
+
+function route() {
+  let page = (location.hash || "#home").slice(1);
+  if (!PAGES.includes(page)) page = "home";
+  if (ADMIN_PAGES.has(page) && !isAdmin) {
+    // قبل اكتمال التحقق من الدخول لا نغيّر الرابط (عشان إعادة تحميل الصفحة ترجع لنفس القسم)
+    if (authReady) history.replaceState(null, "", "#home");
+    page = "home";
+  }
+  document
+    .querySelectorAll(".page")
+    .forEach((p) => p.classList.toggle("active", p.id === "page-" + page));
+  document
+    .querySelectorAll(".nav-links a")
+    .forEach((a) => a.classList.toggle("active", a.dataset.page === page));
+  if (isAdmin && page === "vehicles") loadVehicles();
+  if (isAdmin && page === "followups") loadFollowups();
+  window.scrollTo({ top: 0 });
+}
+window.addEventListener("hashchange", route);
+
+// ---------- نافذة الدخول ----------
+const loginModal = document.getElementById("loginModal");
+const loginEmail = document.getElementById("loginEmail");
+const loginPassword = document.getElementById("loginPassword");
+const loginError = document.getElementById("loginError");
+const loginSubmitBtn = document.getElementById("loginSubmitBtn");
+
+function openLogin() {
+  loginError.textContent = "";
+  loginModal.hidden = false;
+  loginEmail.focus();
+}
+function closeLogin() {
+  loginModal.hidden = true;
+  loginPassword.value = "";
+  loginError.textContent = "";
+}
+
+function authErrorText(code) {
+  switch (code) {
+    case "auth/invalid-credential":
+    case "auth/wrong-password":
+    case "auth/user-not-found":
+      return "البريد أو كلمة المرور غير صحيحة";
+    case "auth/invalid-email":
+      return "صيغة البريد الإلكتروني غير صحيحة";
+    case "auth/too-many-requests":
+      return "محاولات كثيرة، انتظر قليلًا ثم أعد المحاولة";
+    case "auth/network-request-failed":
+      return "تعذر الاتصال بالإنترنت";
+    default:
+      return "تعذر تسجيل الدخول";
+  }
+}
+
+async function doLogin() {
+  const email = loginEmail.value.trim();
+  const pass = loginPassword.value;
+  if (!email || !pass) {
+    loginError.textContent = "ادخل البريد وكلمة المرور";
+    return;
+  }
+  loginSubmitBtn.disabled = true;
+  try {
+    await signInWithEmailAndPassword(auth, email, pass);
+    closeLogin();
+  } catch (err) {
+    loginError.textContent = authErrorText(err.code);
+  } finally {
+    loginSubmitBtn.disabled = false;
+  }
+}
+
+document.getElementById("loginNavBtn").addEventListener("click", openLogin);
+document.getElementById("loginCancelBtn").addEventListener("click", closeLogin);
+loginSubmitBtn.addEventListener("click", doLogin);
+[loginEmail, loginPassword].forEach((el) =>
+  el.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") doLogin();
+  }),
+);
+loginModal.addEventListener("click", (e) => {
+  if (e.target === loginModal) closeLogin();
+});
+document.getElementById("logoutNavBtn").addEventListener("click", () => {
+  if (confirm("تسجيل الخروج؟")) signOut(auth);
+});
+
+onAuthStateChanged(auth, (user) => {
+  isAdmin = !!user;
+  authReady = true;
+  document.body.classList.toggle("is-admin", isAdmin);
+  document.body.classList.remove("auth-pending");
+  if (isAdmin) {
+    loadVehicles();
+  } else {
+    // تنظيف أي بيانات عند الخروج
+    allVehiclesData = [];
+    sessionVehicles = {};
+    selectedSession.clear();
+    clearTimeout(autosaveTimer);
+    autosavePending = false;
+    currentFollowupId = null;
+    currentFollowupName = "";
+    followupSaveState = "";
+    autosaveSkipOnce = true;
+    document.getElementById("vehicleList").innerHTML = "";
+    document.getElementById("followupsList").innerHTML = "";
+    localStorage.removeItem("tableViewData");
+    clearForm();
+    updateOutput();
+    updateFollowupStatus();
+  }
+  route();
+});
+
+// =====================================================================
+//              بحث الزائر (عرض فقط بدون تعديل)
+// =====================================================================
+const guestNumberEl = document.getElementById("guestNumber");
+const guestResultEl = document.getElementById("guestResult");
+let guestReq = 0;
+
+guestNumberEl.addEventListener("input", async () => {
+  const number = guestNumberEl.value.trim();
+  const req = ++guestReq;
+  if (!number) {
+    guestResultEl.innerHTML = "";
+    return;
+  }
+  try {
+    const snap = await getDoc(doc(db, "vehicles", number));
+    if (req !== guestReq) return; // تغيّر الرقم أثناء الانتظار
+    guestResultEl.innerHTML = "";
+    const box = document.createElement("div");
+    if (!snap.exists()) {
+      box.className = "guest-empty";
+      box.textContent = "لا يوجد سجل لهذا الرقم";
+    } else {
+      box.className = "session-item guest-record";
+      const txt = document.createElement("div");
+      txt.className = "session-text";
+      txt.textContent = entryCopyText(snap.data().type, {
+        number,
+        data: snap.data(),
+      });
+      box.appendChild(txt);
+    }
+    guestResultEl.appendChild(box);
+  } catch (err) {
+    if (req !== guestReq) return;
+    guestResultEl.innerHTML = "";
+    const box = document.createElement("div");
+    box.className = "guest-empty";
+    box.textContent = "تعذر جلب البيانات";
+    guestResultEl.appendChild(box);
+  }
+});
+
+// =====================================================================
+//                    المتابعات اليومية المحفوظة
+// =====================================================================
+let currentFollowupId = null; // المتابعة المفتوحة حاليًا (إن كانت محمّلة من المحفوظات)
+let currentFollowupName = "";
+
+let followupSaveState = ""; // "" | "saving" | "saved" | "error"
+let followupSavedAt = null;
+
+function updateFollowupStatus() {
+  const el = document.getElementById("followupStatus");
+  if (!currentFollowupId && !followupSaveState) {
+    el.style.display = "none";
+    el.textContent = "";
+    return;
+  }
+  let t = currentFollowupId ? `📂 ${currentFollowupName}` : "";
+  if (followupSaveState === "saving") t += " — ⏳ جاري الحفظ...";
+  else if (followupSaveState === "saved")
+    t += ` — ✔ حُفظت تلقائيًا ${String(followupSavedAt.getHours()).padStart(2, "0")}:${String(followupSavedAt.getMinutes()).padStart(2, "0")}`;
+  else if (followupSaveState === "error") t += " — ⚠ تعذر الحفظ التلقائي";
+  el.textContent = t.trim();
+  el.style.display = "block";
+}
+
+function sessionToItems() {
+  const items = [];
+  Object.keys(sessionVehicles).forEach((type) => {
+    sessionVehicles[type].forEach((v) =>
+      items.push({ type, number: v.number, kmDiff: v.kmDiff || 0, data: v.data }),
+    );
+  });
+  return JSON.parse(JSON.stringify(items)); // تنظيف (تواريخ → نص)
+}
+
+function itemsToSession(items) {
+  sessionVehicles = {};
+  items.forEach((it) => {
+    if (!sessionVehicles[it.type]) sessionVehicles[it.type] = [];
+    sessionVehicles[it.type].push({
+      number: it.number,
+      data: it.data,
+      kmDiff: it.kmDiff || 0,
+    });
+  });
+}
+
+function sessionIsEmpty() {
+  return Object.values(sessionVehicles).every((l) => !l.length);
+}
+
+function fmtDateTime(d) {
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}/${p(d.getMonth() + 1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+function tsToDate(ts) {
+  if (!ts) return null;
+  return typeof ts.toDate === "function" ? ts.toDate() : new Date(ts);
+}
+
+function buildTextFromItems(items, createdAt) {
+  const d = createdAt || new Date();
+  const dateText = `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}`;
+  let text = `المتابعة اليومية للزيوت / تاريخ: ${dateText}\n\n`;
+  const byType = {};
+  items.forEach((it) => (byType[it.type] = (byType[it.type] || []).concat(it)));
+  Object.keys(byType)
+    .sort()
+    .forEach((type) => {
+      byType[type]
+        .sort(
+          (a, b) =>
+            (b.data.kmSinceLastChange || 0) - (a.data.kmSinceLastChange || 0),
+        )
+        .forEach((it) => {
+          text += buildEntryText(type, { number: it.number, data: it.data });
+        });
+    });
+  return text.trim();
+}
+
+// ---------- الحفظ التلقائي للمتابعة اليومية ----------
+let autosaveTimer = null;
+let autosavePending = false;
+let autosaveSkipOnce = false; // لتجاهل أول تحديث بعد فتح متابعة محفوظة
+
+function scheduleAutosave() {
+  if (autosaveSkipOnce) {
+    autosaveSkipOnce = false;
+    return;
+  }
+  if (!isAdmin) return;
+  clearTimeout(autosaveTimer);
+  autosavePending = false;
+  if (sessionIsEmpty()) return; // لا نكتب متابعة فارغة فوق المحفوظة
+  followupSaveState = "saving";
+  updateFollowupStatus();
+  autosavePending = true;
+  autosaveTimer = setTimeout(autosaveFollowup, 700);
+}
+
+async function autosaveFollowup() {
+  clearTimeout(autosaveTimer);
+  autosavePending = false;
+  if (!isAdmin || sessionIsEmpty()) return;
+
+  const items = sessionToItems();
+  const isNew = !currentFollowupId;
+  if (isNew) {
+    currentFollowupId = doc(collection(db, "dailyFollowups")).id;
+    if (!currentFollowupName) currentFollowupName = `متابعة ${todayText()}`;
+  }
+  const payload = {
+    name: currentFollowupName,
+    items,
+    count: items.length,
+    updatedAt: new Date(),
+  };
+  if (isNew) payload.createdAt = new Date();
+
+  try {
+    await setDoc(doc(db, "dailyFollowups", currentFollowupId), payload, {
+      merge: true,
+    });
+    followupSaveState = "saved";
+    followupSavedAt = new Date();
+  } catch (err) {
+    console.error(err);
+    followupSaveState = "error";
+  }
+  updateFollowupStatus();
+}
+
+// حفظ فوري لو تم إخفاء الصفحة/إغلاقها قبل انتهاء المهلة
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden" && autosavePending) autosaveFollowup();
+});
+
+// ---------- تسمية المتابعة (يدويًا) ----------
+document.getElementById("saveFollowupBtn").addEventListener("click", () => {
+  if (sessionIsEmpty()) {
+    alert("المتابعة اليومية فارغة");
+    return;
+  }
+  const input = prompt(
+    "اسم المتابعة:",
+    currentFollowupName || `متابعة ${todayText()}`,
+  );
+  if (input === null) return;
+  currentFollowupName = input.trim() || `متابعة ${todayText()}`;
+  autosaveFollowup();
+});
+
+// ---------- متابعة جديدة ----------
+document.getElementById("newFollowupBtn").addEventListener("click", () => {
+  if (
+    !sessionIsEmpty() &&
+    !confirm(
+      "سيتم تفريغ المتابعة اليومية الحالية.\nالمتابعة غير المحفوظة ستضيع. هل تريد المتابعة؟",
+    )
+  )
+    return;
+  sessionVehicles = {};
+  selectedSession.clear();
+  clearTimeout(autosaveTimer);
+  autosavePending = false;
+  currentFollowupId = null;
+  currentFollowupName = "";
+  followupSaveState = "";
+  autosaveSkipOnce = true;
+  updateOutput();
+  updateFollowupStatus();
+});
+
+// ---------- قائمة المتابعات المحفوظة ----------
+async function loadFollowups() {
+  const listEl = document.getElementById("followupsList");
+  listEl.textContent = "جاري التحميل...";
+  let rows = [];
+  try {
+    const snap = await getDocs(collection(db, "dailyFollowups"));
+    snap.forEach((d) => rows.push({ id: d.id, ...d.data() }));
+  } catch (err) {
+    console.error(err);
+    listEl.textContent = "تعذر تحميل المتابعات";
+    return;
+  }
+  rows.sort(
+    (a, b) =>
+      (tsToDate(b.createdAt || b.updatedAt)?.getTime() || 0) -
+      (tsToDate(a.createdAt || a.updatedAt)?.getTime() || 0),
+  );
+
+  listEl.innerHTML = "";
+  if (!rows.length) {
+    listEl.innerHTML = '<div class="guest-empty">لا توجد متابعات محفوظة بعد</div>';
+    return;
+  }
+
+  rows.forEach((r) => {
+    const created = tsToDate(r.createdAt);
+    const updated = tsToDate(r.updatedAt);
+    const items = r.items || [];
+
+    const card = document.createElement("div");
+    card.className = "followup-card";
+
+    const info = document.createElement("div");
+    info.className = "followup-info";
+    const title = document.createElement("div");
+    title.className = "followup-title";
+    title.textContent = r.name || "متابعة";
+    const meta = document.createElement("div");
+    meta.className = "followup-meta";
+    meta.textContent =
+      `${items.length} معدة` +
+      (created ? ` · أُنشئت ${fmtDateTime(created)}` : "") +
+      (updated && created && updated - created > 60000
+        ? ` · آخر تعديل ${fmtDateTime(updated)}`
+        : "");
+    const nums = document.createElement("div");
+    nums.className = "followup-nums";
+    const numList = items.map((i) => i.number);
+    nums.textContent =
+      "الأرقام: " +
+      numList.slice(0, 30).join("، ") +
+      (numList.length > 30 ? " ..." : "");
+    info.append(title, meta, nums);
+
+    const actions = document.createElement("div");
+    actions.className = "followup-btns";
+
+    const openBtn = document.createElement("button");
+    openBtn.className = "btn-sm btn-blue";
+    openBtn.textContent = "📂 فتح للتعديل";
+    openBtn.addEventListener("click", () => {
+      if (
+        !sessionIsEmpty() &&
+        !confirm(
+          "سيتم استبدال المتابعة اليومية الحالية بهذه المتابعة.\nهل تريد المتابعة؟",
+        )
+      )
+        return;
+      clearTimeout(autosaveTimer);
+      autosavePending = false;
+      itemsToSession(items);
+      selectedSession.clear();
+      currentFollowupId = r.id;
+      currentFollowupName = r.name || "متابعة";
+      followupSaveState = "";
+      autosaveSkipOnce = true;
+      updateOutput();
+      updateFollowupStatus();
+      location.hash = "#home";
+    });
+
+    const copyBtn2 = document.createElement("button");
+    copyBtn2.className = "btn-sm btn-gray";
+    copyBtn2.textContent = "📋 نسخ";
+    copyBtn2.addEventListener("click", () => {
+      navigator.clipboard.writeText(buildTextFromItems(items, created));
+      copyBtn2.textContent = "✔ تم";
+      setTimeout(() => (copyBtn2.textContent = "📋 نسخ"), 1200);
+    });
+
+    const delBtn = document.createElement("button");
+    delBtn.className = "btn-sm btn-red";
+    delBtn.textContent = "🗑 حذف";
+    delBtn.addEventListener("click", async () => {
+      if (!confirm(`حذف المتابعة «${r.name || ""}» نهائيًا؟\nلا يمكن التراجع.`)) return;
+      try {
+        await deleteDoc(doc(db, "dailyFollowups", r.id));
+        if (currentFollowupId === r.id) {
+          currentFollowupId = null;
+          currentFollowupName = "";
+          updateFollowupStatus();
+        }
+        loadFollowups();
+      } catch (err) {
+        console.error(err);
+        alert("❌ تعذر الحذف");
+      }
+    });
+
+    actions.append(openBtn, copyBtn2, delBtn);
+    card.append(info, actions);
+    listEl.appendChild(card);
+  });
+}
+
+updateFollowupStatus();
+route();

@@ -10,12 +10,43 @@
   <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 </head>
 
-<body>
+<body class="auth-pending">
 
-  <!-- زر الدارك مود -->
-  <button id="darkToggle">🌙</button>
+  <!-- =================== الناف بار =================== -->
+  <nav id="navbar">
+    <div class="nav-brand">🛢 متابعة الزيوت</div>
+    <div class="nav-links">
+      <a href="#home" data-page="home">🏠 الرئيسية</a>
+      <a href="#vehicles" data-page="vehicles" class="admin-only">🚛 المركبات المخزنة</a>
+      <a href="#followups" data-page="followups" class="admin-only">🗂 المتابعات المحفوظة</a>
+      <a href="#export" data-page="export" class="admin-only">📊 التصدير</a>
+    </div>
+    <div class="nav-actions">
+      <button id="loginNavBtn" class="guest-only">🔐 دخول الأدمن</button>
+      <button id="logoutNavBtn" class="admin-only">🚪 خروج</button>
+      <button id="darkToggle">🌙</button>
+    </div>
+  </nav>
 
-  <h2>نموذج إدخال بيانات المركبات</h2>
+  <main>
+
+    <!-- =================== الرئيسية =================== -->
+    <section class="page active" id="page-home">
+
+      <!-- للزائر: بحث فقط (عرض بدون تعديل) -->
+      <div class="guest-only">
+        <h2>البحث عن سجل معدة</h2>
+        <div class="card">
+          <label>رقم المعدة</label>
+          <input id="guestNumber" placeholder="اكتب رقم المعدة ليظهر سجلها" autocomplete="off" />
+          <div id="guestResult"></div>
+          <p class="hint">العرض للاطلاع فقط. لتعديل البيانات سجّل الدخول كأدمن.</p>
+        </div>
+      </div>
+
+      <!-- للأدمن: النموذج + المتابعة اليومية -->
+      <div class="admin-only">
+        <h2>نموذج إدخال بيانات المركبات</h2>
 
   <div class="card">
     <!-- رقم المعدة + بحث + حذف في صف واحد -->
@@ -110,42 +141,63 @@
     <button id="saveSilentBtn" style="background:#6c8ebf;">حفظ / تحديث</button>
   </div>
 
-  <div class="card">
-    <h3>المتابعة اليومية</h3>
-    <div id="output"></div>
-    <div class="copy-row">
-      <button id="copyBtn">📋 نسخ الكل</button>
-      <button id="copyCheckedBtn">☑️ نسخ المحدد</button>
-      <div class="copy-dropdown-wrap">
-        <button type="button" class="copy-dropdown-toggle" id="copyFilterToggle">🎨 نسخ حسب اللون ▾</button>
-          <div class="copy-dropdown-menu" id="copyDropdownMenu">
-            <div class="color-checkboxes">
-              <label><input type="checkbox" value="🟢" /> 🟢 الزيت جديد</label>
-              <label><input type="checkbox" value="🔴" /> 🔴 تحتاج تغيير زيت</label>
-              <label><input type="checkbox" value="🟠" /> 🟠 لايوجد تغيير زيت</label>
-              <label><input type="checkbox" value="⚪" /> ⚪ لايوجد ممشى حالي</label>
-              <label><input type="checkbox" value="🔵" /> 🔵 العداد لا يعمل</label>
-              <label><input type="checkbox" value="⚫" /> ⚫ لايوجد ممشى في اخر تغيير</label>
+        <div class="card">
+          <h3>المتابعة اليومية</h3>
+          <div id="followupStatus" class="followup-status"></div>
+          <div id="output"></div>
+          <div class="copy-row">
+            <button id="copyBtn">📋 نسخ الكل</button>
+            <button id="copyCheckedBtn">☑️ نسخ المحدد</button>
+            <div class="copy-dropdown-wrap">
+              <button type="button" class="copy-dropdown-toggle" id="copyFilterToggle">🎨 نسخ حسب اللون ▾</button>
+              <div class="copy-dropdown-menu" id="copyDropdownMenu">
+                <div class="color-checkboxes">
+                  <label><input type="checkbox" value="🟢" /> 🟢 الزيت جديد</label>
+                  <label><input type="checkbox" value="🔴" /> 🔴 تحتاج تغيير زيت</label>
+                  <label><input type="checkbox" value="🟠" /> 🟠 لايوجد تغيير زيت</label>
+                  <label><input type="checkbox" value="⚪" /> ⚪ لايوجد ممشى حالي</label>
+                  <label><input type="checkbox" value="🔵" /> 🔵 العداد لا يعمل</label>
+                  <label><input type="checkbox" value="⚫" /> ⚫ لايوجد ممشى في اخر تغيير</label>
+                </div>
+                <button id="copySelectedColorsBtn">📋 نسخ الألوان المحددة</button>
+              </div>
             </div>
-            <button id="copySelectedColorsBtn">📋 نسخ الألوان المحددة</button>
           </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <h3 id="vehicleListToggle" style="cursor:pointer; user-select:none;">المركبات المخزنة <span
-          id="vehicleListArrow">▼</span></h3>
-      <div id="vehicleListContent" style="display:none;">
-        <div class="stored-search-bar">
-          <input id="storedSearchInput" placeholder="🔍 ابحث برقم المعدة..." />
-          <button id="storedSearchClearBtn">✕</button>
+          <div class="copy-row followup-actions">
+            <button id="saveFollowupBtn" class="btn-green">✏️ تسمية المتابعة</button>
+            <button id="newFollowupBtn" class="btn-gray">🆕 متابعة جديدة</button>
+          </div>
         </div>
-        <div id="vehicleList"></div>
       </div>
-    </div>
+    </section>
 
+    <!-- =================== المركبات المخزنة =================== -->
+    <section class="page admin-only" id="page-vehicles">
+      <h2>المركبات المخزنة</h2>
+      <div class="card">
+        <h3 id="vehicleListToggle" style="display:none;"><span id="vehicleListArrow">▲</span></h3>
+        <div id="vehicleListContent" style="display:block;">
+          <div class="stored-search-bar">
+            <input id="storedSearchInput" placeholder="🔍 ابحث برقم المعدة..." />
+            <button id="storedSearchClearBtn">✕</button>
+          </div>
+          <div id="vehicleList"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =================== المتابعات المحفوظة =================== -->
+    <section class="page admin-only" id="page-followups">
+      <h2>المتابعات اليومية المحفوظة</h2>
+      <div class="card">
+        <div id="followupsList"></div>
+      </div>
+    </section>
+
+    <!-- =================== التصدير =================== -->
+    <section class="page admin-only" id="page-export">
+      <h2>تصدير البيانات</h2>
     <div class="card">
-      <h3>تصدير البيانات</h3>
       <label>ترتيب التصدير</label>
       <select id="exportSortSelect">
         <option value="type">حسب نوع المعدة</option>
@@ -165,6 +217,23 @@
       <button id="exportBtn">📊 تصدير إلى Excel</button>
       <button id="viewTableBtn" style="background:#27ae60;margin-top:10px;">🌐 عرض في صفحة ويب</button>
     </div>
+    </section>
+
+  </main>
+
+  <!-- =================== نافذة تسجيل الدخول =================== -->
+  <div id="loginModal" class="modal" hidden>
+    <div class="modal-box">
+      <h3>🔐 تسجيل دخول الأدمن</h3>
+      <label>البريد الإلكتروني</label>
+      <input type="email" id="loginEmail" autocomplete="username" />
+      <label>كلمة المرور</label>
+      <input type="password" id="loginPassword" autocomplete="current-password" />
+      <div id="loginError" class="login-error"></div>
+      <button id="loginSubmitBtn">دخول</button>
+      <button id="loginCancelBtn" class="btn-gray">إلغاء</button>
+    </div>
+  </div>
 
     <script>
       const darkToggle = document.getElementById("darkToggle");
