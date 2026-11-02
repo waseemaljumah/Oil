@@ -14,18 +14,24 @@
 
   <!-- =================== الناف بار =================== -->
   <nav id="navbar">
+    <button id="navToggle" type="button" aria-label="القائمة" aria-expanded="false" aria-controls="navMenu">
+      <span></span><span></span><span></span>
+    </button>
     <div class="nav-brand">🛢 متابعة الزيوت</div>
-    <div class="nav-links">
-      <a href="#home" data-page="home">🏠 الرئيسية</a>
-      <a href="#vehicles" data-page="vehicles" class="admin-only">🚛 المركبات المخزنة</a>
-      <a href="#followups" data-page="followups" class="admin-only">🗂 المتابعات المحفوظة</a>
-      <a href="#export" data-page="export" class="admin-only">📊 التصدير</a>
+    <div class="nav-menu" id="navMenu">
+      <div class="nav-links">
+        <a href="#home" data-page="home">🏠 الرئيسية</a>
+        <a href="#vehicles" data-page="vehicles" class="admin-only">🚛 المركبات المخزنة</a>
+        <a href="#followups" data-page="followups" class="admin-only">🗂 المتابعات المحفوظة</a>
+        <a href="#meters" data-page="meters" class="admin-only">📡 وصول العدادات</a>
+        <a href="#export" data-page="export" class="admin-only">📊 التصدير</a>
+      </div>
+      <div class="nav-actions">
+        <button id="loginNavBtn" class="guest-only">🔐 دخول الأدمن</button>
+        <button id="logoutNavBtn" class="admin-only">🚪 خروج</button>
+      </div>
     </div>
-    <div class="nav-actions">
-      <button id="loginNavBtn" class="guest-only">🔐 دخول الأدمن</button>
-      <button id="logoutNavBtn" class="admin-only">🚪 خروج</button>
-      <button id="darkToggle">🌙</button>
-    </div>
+    <button id="darkToggle">🌙</button>
   </nav>
 
   <main>
@@ -167,6 +173,9 @@
             <button id="saveFollowupBtn" class="btn-green">✏️ تسمية المتابعة</button>
             <button id="newFollowupBtn" class="btn-gray">🆕 متابعة جديدة</button>
           </div>
+          <div class="copy-row followup-actions">
+            <button id="registerMetersBtn" class="btn-green">📡 تسجيل وصول العدادات</button>
+          </div>
         </div>
       </div>
     </section>
@@ -191,6 +200,87 @@
       <h2>المتابعات اليومية المحفوظة</h2>
       <div class="card">
         <div id="followupsList"></div>
+      </div>
+    </section>
+
+    <!-- =================== وصول العدادات =================== -->
+    <section class="page admin-only" id="page-meters">
+      <h2>وصول العدادات</h2>
+
+      <div id="metersMsg" class="meters-msg" hidden>
+        <span id="metersMsgText"></span>
+        <button id="metersMsgClose" type="button" title="إغلاق">✕</button>
+      </div>
+
+      <div id="mEmptyNotice" class="meters-msg warn" hidden>
+        قائمة المعدات فارغة. اضغط «استيراد البيانات من النظام القديم» من قسم إدارة القائمة، أو أضف الأرقام يدويًا.
+      </div>
+
+      <div class="card">
+        <div class="form-row">
+          <div class="form-col">
+            <label>من تاريخ</label>
+            <input type="date" id="mFrom" />
+          </div>
+          <div class="form-col">
+            <label>إلى تاريخ</label>
+            <input type="date" id="mTo" />
+          </div>
+        </div>
+        <div class="date-range-title" id="mRangeTitle"></div>
+      </div>
+
+      <div class="card">
+        <h3>إحصائيات المعدات</h3>
+        <div class="meter-stats">
+          <button type="button" data-status="all" class="active"><span>إجمالي المعدات</span><b id="mStatAll">0</b></button>
+          <button type="button" data-status="received"><span>جاء عدادها</span><b id="mStatRec">0</b></button>
+          <button type="button" data-status="missing"><span>ما جاء عدادها</span><b id="mStatMiss">0</b></button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>تسجيل وصول عداد المعدات</h3>
+        <p class="hint">يتم تسجيل تاريخ اليوم تلقائيًا لكل معدة يتم إدخالها</p>
+        <textarea id="mInput" placeholder="الصق نص المتابعة كاملًا، أو اكتب الأرقام مثل: 2233-2200-2197-2185-1860"></textarea>
+        <div id="mDetected" class="detected-numbers"></div>
+        <button id="mSubmitBtn" type="button">📡 تسجيل وصول العداد</button>
+      </div>
+
+      <div class="card">
+        <h3 class="toggle-head" data-target="mListContent">
+          <span>قائمة المعدات <small id="mListCount"></small></span><span class="arrow">▼</span>
+        </h3>
+        <div id="mListContent" style="display:none;">
+          <div class="copy-row">
+            <button id="mCopyBtn" type="button">📋 نسخ الأرقام</button>
+            <button id="mCsvBtn" type="button">⬇️ CSV</button>
+          </div>
+          <div class="meter-filters">
+            <button type="button" data-status="all" class="selected">الكل</button>
+            <button type="button" data-status="received">جاء عدادها</button>
+            <button type="button" data-status="missing">ما جاء عدادها</button>
+          </div>
+          <input id="mSearch" placeholder="🔍 بحث برقم المعدة" autocomplete="off" />
+          <div class="meter-table" id="mTable"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="toggle-head" data-target="mManageContent">
+          <span>إدارة القائمة الأساسية <small id="mManageCount"></small></span><span class="arrow">▼</span>
+        </h3>
+        <div id="mManageContent" style="display:none;">
+          <textarea id="mManageInput" placeholder="2233-2200-2197-2185-1860&#10;أو رقم واحد: 1860"></textarea>
+          <p class="hint">يمكنك كتابة الأرقام باستخدام الشرطة أو الفاصلة أو المسافة.</p>
+          <div class="copy-row">
+            <button id="mAddBtn" type="button" class="btn-green">➕ إضافة للقائمة</button>
+            <button id="mRemoveBtn" type="button" class="btn-red-solid">🗑 حذف من القائمة</button>
+          </div>
+          <div class="copy-row">
+            <button id="mImportBtn" type="button" class="btn-gray">📥 استيراد البيانات من النظام القديم</button>
+          </div>
+        </div>
       </div>
     </section>
 

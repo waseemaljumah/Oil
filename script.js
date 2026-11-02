@@ -1,4 +1,4 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
 import {
   getFirestore,
   doc,
@@ -7,11 +7,15 @@ import {
   deleteDoc,
   collection,
   getDocs,
+  onSnapshot,
+  arrayUnion,
+  writeBatch,
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 import {
   getAuth,
   signInWithEmailAndPassword,
   signOut,
+  signInAnonymously,
   onAuthStateChanged,
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
 
@@ -1292,8 +1296,8 @@ document.getElementById("viewTableBtn").addEventListener("click", async () => {
 //                    الصفحات (Navbar) + تسجيل الدخول
 // =====================================================================
 let authReady = false;
-const PAGES = ["home", "vehicles", "followups", "export"];
-const ADMIN_PAGES = new Set(["vehicles", "followups", "export"]);
+const PAGES = ["home", "vehicles", "followups", "meters", "export"];
+const ADMIN_PAGES = new Set(["vehicles", "followups", "meters", "export"]);
 
 function route() {
   let page = (location.hash || "#home").slice(1);
@@ -1311,6 +1315,7 @@ function route() {
     .forEach((a) => a.classList.toggle("active", a.dataset.page === page));
   if (isAdmin && page === "vehicles") loadVehicles();
   if (isAdmin && page === "followups") loadFollowups();
+  closeNavMenu();
   window.scrollTo({ top: 0 });
 }
 window.addEventListener("hashchange", route);
@@ -1390,7 +1395,9 @@ onAuthStateChanged(auth, (user) => {
   document.body.classList.remove("auth-pending");
   if (isAdmin) {
     loadVehicles();
+    startMetersSync();
   } else {
+    stopMetersSync();
     // تنظيف أي بيانات عند الخروج
     allVehiclesData = [];
     sessionVehicles = {};
@@ -1743,6 +1750,628 @@ async function loadFollowups() {
     listEl.appendChild(card);
   });
 }
+
+// =====================================================================
+//                         قسم: وصول العدادات
+// =====================================================================
+// إعدادات مشروع Firebase القديم (نظام متابعة ممشى المعدات) — تُستخدم فقط لزر الاستيراد
+const OLD_METERS_FIREBASE = {"apiKey": "AIzaSyBjkTIDiByJP-57hLzUwtDcB95834O8Bgc", "authDomain": "killometer.firebaseapp.com", "projectId": "killometer", "storageBucket": "killometer.firebasestorage.app", "messagingSenderId": "606355517115", "appId": "1:606355517115:web:399935bed02c0fd16a839e"};
+
+let meterEquipment = []; // [{id, number, meterAvailable, lastReceivedDate}]
+let meterReceipts = {}; // { "1234": ["2026-11-01", ...] }
+let meterUnsubs = [];
+let meterEquipReady = false;
+let meterStatus = "all"; // all | received | missing
+let meterSearch = "";
+
+const mEl = (id) => document.getElementById(id);
+
+function meterDateKey(d = new Date()) {
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+function meterFmtDate(v) {
+  if (!v) return "—";
+  const [y, m, d] = v.split("-");
+  return `${y}/${m}/${d}`;
+}
+function toEnglishDigits(value) {
+  return value
+    .replace(/[\u0660-\u0669]/g, (d) => String(d.charCodeAt(0) - 0x0660))
+    .replace(/[\u06F0-\u06F9]/g, (d) => String(d.charCodeAt(0) - 0x06f0));
+}
+function parseNumbers(value) {
+  const norm = toEnglishDigits(value)
+    .replace(/[\u060C,;\s\n\r]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+  return [
+    ...new Set(
+      norm
+        .split("-")
+        .map((x) => Number(x.trim()))
+        .filter((n) => Number.isInteger(n) && n > 0),
+    ),
+  ];
+}
+// يدعم: نص تقرير كامل (يلتقط الأرقام بعد "رقم المعدة:") أو أرقام مفصولة بـ - أو فاصلة أو مسافة
+function extractEquipmentNumbers(value) {
+  const text = toEnglishDigits(value);
+  const re = /رقم\s*(?:ال)?معدة\s*[:：=\-]?\s*(\d+)/g;
+  const found = [];
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    const n = Number(m[1]);
+    if (Number.isInteger(n) && n > 0) found.push(n);
+  }
+  if (found.length) return [...new Set(found)];
+  return parseNumbers(text);
+}
+
+function showMetersMessage(msg) {
+  mEl("metersMsgText").textContent = msg;
+  mEl("metersMsg").hidden = false;
+}
+mEl("metersMsgClose").addEventListener("click", () => (mEl("metersMsg").hidden = true));
+
+// ---------- المزامنة اللحظية ----------
+function startMetersSync() {
+  stopMetersSync();
+  meterUnsubs.push(
+    onSnapshot(
+      collection(db, "equipment"),
+      (snap) => {
+        meterEquipment = snap.docs
+          .map((d) => {
+            const x = d.data();
+            return {
+              id: d.id,
+              number: Number(x.number),
+              meterAvailable: x.meterAvailable !== false,
+              lastReceivedDate:
+                typeof x.lastReceivedDate === "string" ? x.lastReceivedDate : undefined,
+            };
+          })
+          .filter((e) => Number.isInteger(e.number))
+          .sort((a, b) => a.number - b.number);
+        meterEquipReady = true;
+        renderMeters();
+      },
+      (err) => {
+        console.error(err);
+        showMetersMessage("تعذر الوصول إلى قائمة المعدات في قاعدة البيانات.");
+      },
+    ),
+  );
+  meterUnsubs.push(
+    onSnapshot(
+      collection(db, "meterReceipts"),
+      (snap) => {
+        const out = {};
+        snap.docs.forEach((d) => {
+          const x = d.data();
+          out[d.id] = Array.isArray(x.dates)
+            ? x.dates.filter((v) => typeof v === "string")
+            : [];
+        });
+        meterReceipts = out;
+        renderMeters();
+      },
+      (err) => {
+        console.error(err);
+        showMetersMessage("تعذر تحميل سجل وصول العدادات.");
+      },
+    ),
+  );
+}
+
+function stopMetersSync() {
+  meterUnsubs.forEach((u) => u());
+  meterUnsubs = [];
+  meterEquipment = [];
+  meterReceipts = {};
+  meterEquipReady = false;
+  renderMeters();
+}
+
+// ---------- الحسابات ----------
+function meterRange() {
+  return { from: mEl("mFrom").value, to: mEl("mTo").value };
+}
+function isReceivedInRange(number) {
+  const { from, to } = meterRange();
+  return (meterReceipts[String(number)] || []).some(
+    (d) => (!from || d >= from) && (!to || d <= to),
+  );
+}
+function getLastDate(item) {
+  if (item.lastReceivedDate) return item.lastReceivedDate;
+  const dates = meterReceipts[String(item.number)] || [];
+  return dates.length ? [...dates].sort().at(-1) : undefined;
+}
+function meterFiltered() {
+  return meterEquipment.filter((e) => {
+    const matchSearch = !meterSearch || String(e.number).includes(meterSearch);
+    const rec = e.meterAvailable && isReceivedInRange(e.number);
+    const matchStatus =
+      meterStatus === "all" ||
+      (meterStatus === "received" && rec) ||
+      (meterStatus === "missing" && !rec);
+    return matchSearch && matchStatus;
+  });
+}
+
+// ---------- العرض ----------
+function renderMeters() {
+  const total = meterEquipment.length;
+  const received = meterEquipment.filter(
+    (e) => e.meterAvailable && isReceivedInRange(e.number),
+  ).length;
+  const { from, to } = meterRange();
+
+  mEl("mStatAll").textContent = total;
+  mEl("mStatRec").textContent = received;
+  mEl("mStatMiss").textContent = total - received;
+  mEl("mRangeTitle").textContent = `متابعة من ${meterFmtDate(from)} إلى ${meterFmtDate(to)}`;
+  mEl("mManageCount").textContent = `— ${total} معدة`;
+  mEl("mEmptyNotice").hidden = !(meterEquipReady && !total);
+
+  document
+    .querySelectorAll(".meter-stats button, .meter-filters button")
+    .forEach((b) => {
+      const on = b.dataset.status === meterStatus;
+      b.classList.toggle(b.closest(".meter-stats") ? "active" : "selected", on);
+    });
+
+  const filtered = meterFiltered();
+  mEl("mListCount").textContent = `— ${filtered.length} من ${total}`;
+
+  const table = mEl("mTable");
+  if (mEl("mListContent").style.display === "none") return; // لا نرسم الجدول وهو مخفي
+  table.innerHTML = "";
+  const head = document.createElement("div");
+  head.className = "meter-row th";
+  ["رقم المعدة", "الحالة في الفترة", "آخر تاريخ للعداد", "", ""].forEach((t) => {
+    const sp = document.createElement("span");
+    sp.textContent = t;
+    head.appendChild(sp);
+  });
+  table.appendChild(head);
+
+  const frag = document.createDocumentFragment();
+  filtered.forEach((e) => {
+    const rec = e.meterAvailable && isReceivedInRange(e.number);
+    const row = document.createElement("div");
+    row.className = "meter-row";
+
+    const num = document.createElement("b");
+    num.textContent = e.number;
+
+    const st = document.createElement("span");
+    st.className = rec ? "ok" : "bad";
+    st.textContent = rec
+      ? "✓ جاء عدادها"
+      : e.meterAvailable
+        ? "× ما جاء عدادها"
+        : "× لا يوجد عداد";
+
+    const last = document.createElement("span");
+    last.className = "last-date";
+    last.textContent = meterFmtDate(getLastDate(e));
+
+    const edit = document.createElement("button");
+    edit.className = "meter-icon";
+    edit.dataset.act = "toggle";
+    edit.dataset.num = e.number;
+    edit.title = "تعديل حالة العداد (يوجد / لا يوجد عداد)";
+    edit.textContent = "✏️";
+
+    const del = document.createElement("button");
+    del.className = "meter-icon danger";
+    del.dataset.act = "delete";
+    del.dataset.num = e.number;
+    del.title = "حذف من القائمة الأساسية";
+    del.textContent = "🗑";
+
+    row.append(num, st, last, edit, del);
+    frag.appendChild(row);
+  });
+  table.appendChild(frag);
+
+  if (!filtered.length) {
+    const empty = document.createElement("div");
+    empty.className = "guest-empty";
+    empty.textContent = "لا توجد نتائج مطابقة للفترة أو التصفية المحددة.";
+    table.appendChild(empty);
+  }
+}
+
+// ---------- تسجيل وصول العدادات (يُستخدم من الصفحة ومن زر المتابعة اليومية) ----------
+async function registerMeterArrivals(nums) {
+  if (!meterEquipReady) {
+    return { ok: false, msg: "جاري تحميل قائمة المعدات، حاول بعد لحظات." };
+  }
+  const byNum = new Map(meterEquipment.map((e) => [e.number, e]));
+  const fresh = nums.filter((n) => byNum.get(n)?.meterAvailable === true);
+  const unavailable = nums.filter((n) => byNum.get(n)?.meterAvailable === false);
+  const unknown = nums.filter((n) => !byNum.has(n));
+
+  let extra = "";
+  if (unavailable.length) extra += ` — لا يوجد عداد لها: ${unavailable.join("، ")}`;
+  if (unknown.length) extra += ` — أرقام غير موجودة في قائمة العدادات: ${unknown.join("، ")}`;
+
+  if (!fresh.length) {
+    return {
+      ok: false,
+      msg: "لا توجد معدات قابلة للتسجيل (تأكد أنها في القائمة وحالتها «يوجد عداد»)." + extra,
+    };
+  }
+
+  const date = meterDateKey();
+  try {
+    await Promise.all(
+      fresh.map((number) =>
+        Promise.all([
+          setDoc(
+            doc(db, "meterReceipts", String(number)),
+            { dates: arrayUnion(date), updatedAt: new Date().toISOString() },
+            { merge: true },
+          ),
+          setDoc(
+            doc(db, "equipment", String(number)),
+            { number, meterAvailable: true, lastReceivedDate: date },
+            { merge: true },
+          ),
+        ]),
+      ),
+    );
+  } catch (err) {
+    console.error(err);
+    return { ok: false, msg: "حدث خطأ أثناء حفظ وصول العداد." };
+  }
+  return {
+    ok: true,
+    msg: `تم تسجيل وصول العداد لـ ${fresh.length} معدة بتاريخ ${meterFmtDate(date)}${extra}`,
+  };
+}
+
+// زر "تسجيل وصول العدادات" تحت المتابعة اليومية
+mEl("registerMetersBtn").addEventListener("click", async () => {
+  const nums = [
+    ...new Set(
+      Object.values(sessionVehicles)
+        .flat()
+        .map((v) => Number(v.number))
+        .filter((n) => Number.isInteger(n) && n > 0),
+    ),
+  ];
+  if (!nums.length) {
+    alert("المتابعة اليومية فارغة");
+    return;
+  }
+  const btn = mEl("registerMetersBtn");
+  btn.disabled = true;
+  const r = await registerMeterArrivals(nums);
+  btn.disabled = false;
+  showMetersMessage(r.msg);
+  alert((r.ok ? "✅ " : "⚠️ ") + r.msg);
+});
+
+// زر التسجيل داخل صفحة وصول العدادات
+mEl("mSubmitBtn").addEventListener("click", async () => {
+  const nums = extractEquipmentNumbers(mEl("mInput").value);
+  if (!nums.length) {
+    showMetersMessage("اكتب رقمًا أو مجموعة أرقام صحيحة.");
+    return;
+  }
+  const r = await registerMeterArrivals(nums);
+  showMetersMessage(r.msg);
+  if (r.ok) {
+    mEl("mInput").value = "";
+    mEl("mDetected").textContent = "";
+  }
+});
+mEl("mInput").addEventListener("input", () => {
+  const nums = extractEquipmentNumbers(mEl("mInput").value);
+  mEl("mDetected").innerHTML = "";
+  if (nums.length) {
+    const b = document.createElement("b");
+    b.textContent = nums.length;
+    mEl("mDetected").append("تم التعرف على ", b, ` معدة: ${nums.join("-")}`);
+  }
+});
+
+// ---------- التواريخ والفلاتر ----------
+mEl("mFrom").value = (() => {
+  const d = new Date();
+  d.setDate(d.getDate() - 30);
+  return meterDateKey(d);
+})();
+mEl("mTo").value = meterDateKey();
+["mFrom", "mTo"].forEach((id) =>
+  mEl(id).addEventListener("change", () => {
+    meterStatus = "all";
+    renderMeters();
+  }),
+);
+document
+  .querySelectorAll(".meter-stats button, .meter-filters button")
+  .forEach((b) =>
+    b.addEventListener("click", () => {
+      meterStatus = b.dataset.status;
+      renderMeters();
+    }),
+  );
+mEl("mSearch").addEventListener("input", (e) => {
+  meterSearch = toEnglishDigits(e.target.value.trim());
+  renderMeters();
+});
+
+// أقسام قابلة للطي
+document.querySelectorAll("#page-meters .toggle-head").forEach((h) =>
+  h.addEventListener("click", () => {
+    const box = mEl(h.dataset.target);
+    const open = box.style.display === "none";
+    box.style.display = open ? "block" : "none";
+    h.querySelector(".arrow").textContent = open ? "▲" : "▼";
+    if (open) renderMeters();
+  }),
+);
+
+// ---------- نسخ وCSV ----------
+mEl("mCopyBtn").addEventListener("click", async () => {
+  const list = meterFiltered();
+  if (!list.length) {
+    showMetersMessage("لا توجد أرقام لنسخها.");
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(list.map((e) => e.number).join("-"));
+    showMetersMessage(`تم نسخ ${list.length} رقم.`);
+  } catch {
+    showMetersMessage("تعذر النسخ تلقائيًا. حاول مرة أخرى.");
+  }
+});
+mEl("mCsvBtn").addEventListener("click", () => {
+  const { from, to } = meterRange();
+  const rows = [
+    ["الرقم", "الحالة في الفترة", "آخر تاريخ للعداد"],
+    ...meterFiltered().map((e) => [
+      String(e.number),
+      e.meterAvailable && isReceivedInRange(e.number) ? "جاء عدادها" : "ما جاء عدادها",
+      meterFmtDate(getLastDate(e)),
+    ]),
+  ];
+  const blob = new Blob(["\ufeff" + rows.map((r) => r.join(",")).join("\n")], {
+    type: "text/csv;charset=utf-8",
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `معدات-${from}-الى-${to}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+});
+
+// ---------- تعديل / حذف معدة من الجدول ----------
+mEl("mTable").addEventListener("click", async (ev) => {
+  const btn = ev.target.closest("button[data-act]");
+  if (!btn) return;
+  const number = Number(btn.dataset.num);
+  if (btn.dataset.act === "toggle") await toggleMeterStatus(number);
+  else if (btn.dataset.act === "delete") await removeMeterEquipment(number);
+});
+
+async function toggleMeterStatus(number) {
+  const item = meterEquipment.find((e) => e.number === number);
+  if (!item) return;
+  const next = !item.meterAvailable;
+  try {
+    if (!next) {
+      await Promise.all([
+        setDoc(
+          doc(db, "equipment", String(number)),
+          { number, meterAvailable: false, lastReceivedDate: null },
+          { merge: true },
+        ),
+        deleteDoc(doc(db, "meterReceipts", String(number))),
+      ]);
+      showMetersMessage(`تم تعديل المعدة ${number} إلى "لا يوجد عداد" وحذف تاريخ العداد.`);
+    } else {
+      await setDoc(
+        doc(db, "equipment", String(number)),
+        { number, meterAvailable: true, lastReceivedDate: null },
+        { merge: true },
+      );
+      showMetersMessage(`تم تعديل المعدة ${number} إلى "يوجد عداد".`);
+    }
+  } catch (err) {
+    console.error(err);
+    showMetersMessage("تعذر تعديل حالة المعدة.");
+  }
+}
+
+async function removeMeterEquipment(number) {
+  if (!confirm(`حذف المعدة ${number} من القائمة الأساسية؟`)) return;
+  try {
+    await Promise.all([
+      deleteDoc(doc(db, "equipment", String(number))),
+      deleteDoc(doc(db, "meterReceipts", String(number))),
+    ]);
+    showMetersMessage(`تم حذف ${number}`);
+  } catch (err) {
+    console.error(err);
+    showMetersMessage("حدث خطأ أثناء حذف المعدة.");
+  }
+}
+
+// ---------- إدارة القائمة الأساسية (إضافة / حذف مجموعة) ----------
+mEl("mAddBtn").addEventListener("click", async () => {
+  const nums = parseNumbers(mEl("mManageInput").value);
+  if (!nums.length) {
+    showMetersMessage("اكتب رقمًا أو مجموعة أرقام لإضافتها.");
+    return;
+  }
+  const existing = new Set(meterEquipment.map((e) => e.number));
+  const already = nums.filter((n) => existing.has(n));
+  const fresh = nums.filter((n) => !existing.has(n));
+  if (!fresh.length) {
+    mEl("mManageInput").value = "";
+    showMetersMessage(`جميع الأرقام المدخلة موجودة مسبقًا: ${already.join("، ")}`);
+    return;
+  }
+  try {
+    await Promise.all(
+      fresh.map((number) =>
+        setDoc(
+          doc(db, "equipment", String(number)),
+          { number, meterAvailable: true },
+          { merge: true },
+        ),
+      ),
+    );
+  } catch (err) {
+    console.error(err);
+    showMetersMessage("تعذر حفظ المعدات في قاعدة البيانات.");
+    return;
+  }
+  mEl("mManageInput").value = "";
+  showMetersMessage(
+    `تمت إضافة ${fresh.length} معدة` +
+      (already.length ? ` — موجودة مسبقًا: ${already.join("، ")}` : ""),
+  );
+});
+
+mEl("mRemoveBtn").addEventListener("click", async () => {
+  const nums = parseNumbers(mEl("mManageInput").value);
+  if (!nums.length) {
+    showMetersMessage("اكتب رقمًا أو مجموعة أرقام للحذف.");
+    return;
+  }
+  const existing = new Set(meterEquipment.map((e) => e.number));
+  const found = nums.filter((n) => existing.has(n));
+  const notFound = nums.filter((n) => !existing.has(n));
+  if (!found.length) {
+    mEl("mManageInput").value = "";
+    showMetersMessage(`الأرقام المدخلة غير موجودة في القائمة: ${notFound.join("، ")}`);
+    return;
+  }
+  if (!confirm(`هل أنت متأكد من حذف ${found.length} معدة من القائمة الأساسية؟\n\n${found.join(" - ")}`)) return;
+  try {
+    await Promise.all(
+      found.flatMap((number) => [
+        deleteDoc(doc(db, "equipment", String(number))),
+        deleteDoc(doc(db, "meterReceipts", String(number))),
+      ]),
+    );
+  } catch (err) {
+    console.error(err);
+    showMetersMessage("حدث خطأ أثناء حفظ عملية الحذف.");
+    return;
+  }
+  mEl("mManageInput").value = "";
+  showMetersMessage(
+    `تم حذف ${found.length} معدة` +
+      (notFound.length ? ` — غير موجودة: ${notFound.join("، ")}` : ""),
+  );
+});
+
+// ---------- استيراد البيانات من النظام القديم (مرة واحدة) ----------
+mEl("mImportBtn").addEventListener("click", async () => {
+  if (
+    !confirm(
+      "سيتم نسخ قائمة المعدات وسجل وصول العدادات من النظام القديم إلى هذا النظام.\n" +
+        "العملية آمنة ويمكن تكرارها (لا تحذف شيئًا من النظام القديم).\n\nهل تريد المتابعة؟",
+    )
+  )
+    return;
+
+  const btn = mEl("mImportBtn");
+  btn.disabled = true;
+  btn.textContent = "⏳ جاري الاستيراد...";
+  try {
+    const oldApp =
+      getApps().find((a) => a.name === "oldMeters") ||
+      initializeApp(OLD_METERS_FIREBASE, "oldMeters");
+    await signInAnonymously(getAuth(oldApp));
+    const oldDb = getFirestore(oldApp);
+
+    const [eqSnap, rcSnap] = await Promise.all([
+      getDocs(collection(oldDb, "equipment")),
+      getDocs(collection(oldDb, "meterReceipts")),
+    ]);
+
+    const ops = [];
+    eqSnap.forEach((d) => {
+      const x = d.data();
+      const n = Number(x.number);
+      if (!Number.isInteger(n)) return;
+      const data = { number: n, meterAvailable: x.meterAvailable !== false };
+      if (typeof x.lastReceivedDate === "string") data.lastReceivedDate = x.lastReceivedDate;
+      ops.push([doc(db, "equipment", String(n)), data]);
+    });
+    rcSnap.forEach((d) => {
+      const dates = Array.isArray(d.data().dates)
+        ? d.data().dates.filter((v) => typeof v === "string")
+        : [];
+      if (!dates.length) return;
+      ops.push([
+        doc(db, "meterReceipts", d.id),
+        { dates: arrayUnion(...dates), updatedAt: new Date().toISOString() },
+      ]);
+    });
+
+    for (let i = 0; i < ops.length; i += 400) {
+      const batch = writeBatch(db);
+      ops.slice(i, i + 400).forEach(([ref, data]) => batch.set(ref, data, { merge: true }));
+      await batch.commit();
+    }
+    showMetersMessage(
+      `✅ تم الاستيراد: ${eqSnap.size} معدة و${rcSnap.size} سجل وصول عدادات.`,
+    );
+  } catch (err) {
+    console.error(err);
+    showMetersMessage("❌ تعذر الاستيراد من النظام القديم: " + (err.code || err.message));
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "📥 استيراد البيانات من النظام القديم";
+  }
+});
+
+// =====================================================================
+//                     الناف بار الذكي (☰ في الشاشات الصغيرة)
+// =====================================================================
+const navToggle = document.getElementById("navToggle");
+const navMenu = document.getElementById("navMenu");
+
+function closeNavMenu() {
+  navMenu.classList.remove("open");
+  navToggle.classList.remove("open");
+  navToggle.setAttribute("aria-expanded", "false");
+}
+navToggle.addEventListener("click", (e) => {
+  e.stopPropagation();
+  const open = navMenu.classList.toggle("open");
+  navToggle.classList.toggle("open", open);
+  navToggle.setAttribute("aria-expanded", String(open));
+});
+navMenu.addEventListener("click", (e) => {
+  // إغلاق القائمة عند اختيار قسم أو زر (دخول/خروج)
+  if (e.target.closest("a, button")) closeNavMenu();
+});
+document.addEventListener("click", (e) => {
+  if (!e.target.closest("#navbar")) closeNavMenu();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closeNavMenu();
+});
+window.addEventListener("resize", () => {
+  if (window.innerWidth > 900) closeNavMenu();
+});
+
+renderMeters();
 
 updateFollowupStatus();
 route();
