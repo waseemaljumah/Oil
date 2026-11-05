@@ -862,3 +862,6 @@ body.dark .meter-row.th { background: #2d3748; }
 .meter-icon.danger { background: #fde8e8; }
 .btn-red-solid { background: #e05555; }
 .btn-red-solid:hover { background: #c94444; }
+
+.km-date-box { margin-top: -2px; font-size: 13px; border-style: solid; border-color: #cbd5e0; background: #f7fafc; }
+body.dark .km-date-box { background: #2d3748; border-color: #4a5568; }

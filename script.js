@@ -93,6 +93,7 @@ lastKmOther.style.display = "none";
 
 let sessionVehicles = {};
 let allVehiclesData = [];
+let loadedKmInfo = null; // {currentKm, date} للمعدة المحمّلة في النموذج (لعرض تاريخ آخر تعديل للممشى)
 const selectedSession = new Set(); // أرقام المعدات المحددة بالـ checkbox في المتابعة اليومية
 
 // =================== الممشى منذ آخر تغيير + اللون (مباشر) ===================
@@ -136,6 +137,15 @@ function updateKmDiffLive() {
   if (colorEl) {
     colorEl.textContent =
       colorSelect.value === "auto" ? autoEmojis : colorSelect.value;
+  }
+
+  // تاريخ آخر تعديل للممشى الحالي (للعرض فقط)
+  const kmDateEl = document.getElementById("kmUpdatedLive");
+  if (kmDateEl) {
+    const changed = !loadedKmInfo || String(loadedKmInfo.currentKm) !== String(curStored);
+    kmDateEl.textContent = changed
+      ? `${meterFmtDate(meterDateKey())} (عند الحفظ)`
+      : meterFmtDate(loadedKmInfo.date);
   }
 }
 [
@@ -270,10 +280,26 @@ async function saveVehicle(addToSession) {
       ? cur.value - Number(lastKmStored)
       : 0;
 
+  // تاريخ آخر تعديل للممشى الحالي: يتحدث تلقائيًا فقط إذا تغيّر الممشى الحالي (أو معدة جديدة)
+  let prevData = null;
+  try {
+    const prevSnap = await getDoc(doc(db, "vehicles", number));
+    if (prevSnap.exists()) prevData = prevSnap.data();
+  } catch (err) {
+    console.error(err);
+  }
+  let currentKmUpdatedAt;
+  if (!prevData || String(prevData.currentKm) !== String(currentKmStored)) {
+    currentKmUpdatedAt = meterDateKey();
+  } else {
+    currentKmUpdatedAt = prevData.currentKmUpdatedAt || "";
+  }
+
   const data = {
     type: typeVal,
     date: dateVal,
     currentKm: currentKmStored,
+    currentKmUpdatedAt,
     lastKm: lastKmStored,
     kmSinceLastChange: kmDiff,
     filter: filterVal,
@@ -355,6 +381,7 @@ async function loadVehicle(number, silent) {
 
     document.getElementById("date").value = data.date;
     colorSelect.value = data.manualColor || "auto";
+    loadedKmInfo = { currentKm: data.currentKm, date: data.currentKmUpdatedAt || "" };
 
     if (data.currentKm === NO_KM_CURRENT) {
       currentKmSelect.value = "none";
@@ -423,6 +450,10 @@ document.getElementById("number").addEventListener("input", () => {
     }
     try {
       const found = await loadVehicle(number, true);
+      if (found === false) {
+        loadedKmInfo = null;
+        updateKmDiffLive();
+      }
       if (found === true) {
         autoLoaded = true;
       } else if (found === false && autoLoaded) {
@@ -722,6 +753,7 @@ function renderVehicles(filterColors = null, searchTerm = "") {
 
       document.getElementById("date").value = data.date;
     colorSelect.value = data.manualColor || "auto";
+    loadedKmInfo = { currentKm: data.currentKm, date: data.currentKmUpdatedAt || "" };
 
       if (data.currentKm === NO_KM_CURRENT) {
         currentKmSelect.value = "none";
@@ -1007,6 +1039,7 @@ function clearForm() {
   filterOther.value = "";
   filterOther.style.display = "none";
   colorSelect.value = "auto";
+  loadedKmInfo = null;
   updateKmDiffLive();
 }
 
