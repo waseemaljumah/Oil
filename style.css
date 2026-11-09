@@ -903,3 +903,20 @@ body.dark .km-date-box { background: #2d3748; border-color: #4a5568; }
   .page-dots { right: 4px; gap: 12px; padding: 8px 4px; }
   .page-dots button { width: 12px; height: 12px; }
 }
+
+/* =================== أنواع المعدات =================== */
+.type-row {
+  display: grid;
+  grid-template-columns: 2fr 1.3fr 0.6fr auto;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.type-row input { margin: 0; }
+.type-row.th { font-size: 12px; font-weight: bold; color: #718096; }
+.type-count { text-align: center; color: #718096; font-size: 13px; }
+@media (max-width: 600px) {
+  .type-row { grid-template-columns: 1.6fr 1fr 0.5fr auto; gap: 4px; }
+}
+.page-dots button.red-dot { border-color: #ffb3b3; }
+.page-dots button.red-dot.active { background: #e05555; }

@@ -91,6 +91,36 @@ currentKmInput.style.display = "block";
 lastKmInput.style.display = "block";
 lastKmOther.style.display = "none";
 
+// أنواع المعدات + الممشى لتغيير الزيت (تُحمَّل من Firestore وتُعدَّل من قسم "أنواع المعدات")
+const DEFAULT_EQUIPMENT_TYPES = [
+  { name: "قلاب مرسيدس", interval: 10000 },
+  { name: "قلاب فولفو", interval: 5500 },
+  { name: "لوبد فولفو", interval: 5500 },
+  { name: "وايت فولفو", interval: 5500 },
+  { name: "لوبد مرسيدس", interval: 5500 },
+  { name: "لوبد", interval: 5500 },
+  { name: "وايت", interval: 0 },
+  { name: "دينا", interval: 4500 },
+  { name: "سطحة", interval: 4500 },
+  { name: "دينا سطحة", interval: 4500 },
+  { name: "ونش", interval: 4500 },
+  { name: "دينا ونش", interval: 4500 },
+  { name: "حافلة", interval: 4500 },
+  { name: "شيول", interval: 250 },
+  { name: "شيول جي سي بي", interval: 250 },
+  { name: "جي سي بي", interval: 250 },
+  { name: "قريدر", interval: 250 },
+  { name: "بوكلين", interval: 250 },
+  { name: "بلدوزر", interval: 250 },
+  { name: "بوبكات", interval: 250 },
+  { name: "فولفو", interval: 5500 },
+  { name: "مدحلة", interval: 250 },
+];
+let equipmentTypes = DEFAULT_EQUIPMENT_TYPES.map((t) => ({ ...t }));
+function isKnownType(name) {
+  return equipmentTypes.some((t) => t.name === name);
+}
+
 let sessionVehicles = {};
 let allVehiclesData = [];
 let loadedKmInfo = null; // {currentKm, date} للمعدة المحمّلة في النموذج (لعرض تاريخ آخر تعديل للممشى)
@@ -210,37 +240,9 @@ function getStatusEmoji(type, currentKmRaw, lastKm, manualColor) {
   // حساب الحالة بناءً على الممشى (أحمر أو أخضر) - فقط إذا كان هناك قيمة رقمية
   if (cur.type === "value" && !isNoKm(lastKm)) {
     const kmDiff = cur.value - Number(lastKm);
-    const volvoTypes = [
-      "لوبد فولفو",
-      "لوبد",
-      "قلاب فولفو",
-      "لوبد مرسيدس",
-      "وايت فولفو",
-      "فولفو",
-    ];
-    const heavyTypes = [
-      "قريدر",
-      "شيول",
-      "بوكلين",
-      "بلدوزر",
-      "بوبكات",
-      "مدحلة",
-      "شيول جي سي بي",
-      "جي سي بي",
-    ];
-    const Car = ["دينا", "سطحة", "ونش", "حافلة", "دينا ونش", "دينا سطحة"];
-
-    if (volvoTypes.includes(type)) {
-      emojis.push(kmDiff >= 5500 ? "🔴" : "🟢");
-    } else if (type === "قلاب مرسيدس") {
-      emojis.push(kmDiff >= 10000 ? "🔴" : "🟢");
-    } else if (Car.includes(type)) {
-      emojis.push(kmDiff >= 4500 ? "🔴" : "🟢");
-    } else if (heavyTypes.includes(type)) {
-      emojis.push(kmDiff >= 250 ? "🔴" : "🟢");
-    } else {
-      emojis.push("🟢");
-    }
+    // الحد (كم) لتغيير الزيت حسب نوع المعدة من إعدادات "أنواع المعدات"
+    const cfg = equipmentTypes.find((t) => t.name === type);
+    emojis.push(cfg && cfg.interval > 0 && kmDiff >= cfg.interval ? "🔴" : "🟢");
   }
 
   // إذا لم يكن هناك أي ألوان، نرجع أخضر افتراضي
@@ -341,28 +343,7 @@ async function loadVehicle(number, silent) {
     const data = docSnap.data();
     document.getElementById("number").value = number;
 
-    const knownTypes = [
-      "قلاب فولفو",
-      "لوبد فولفو",
-      "وايت فولفو",
-      "لوبد",
-      "لوبد مرسيدس",
-      "قلاب مرسيدس",
-      "وايت",
-      "دينا",
-      "سطحة",
-      "ونش",
-      "حافلة",
-      "دينا ونش",
-      "دينا سطحة",
-      "قريدر",
-      "شيول جي سي بي",
-      "جي سي بي",
-      "بوكلين",
-      "بلدوزر",
-      "بوبكات",
-    ];
-    typeSelect.value = knownTypes.includes(data.type) ? data.type : "اخرى";
+    typeSelect.value = isKnownType(data.type) ? data.type : "اخرى";
     typeOther.value = typeSelect.value === "اخرى" ? data.type : "";
     typeOther.style.display = typeSelect.value === "اخرى" ? "block" : "none";
 
@@ -713,28 +694,7 @@ function renderVehicles(filterColors = null, searchTerm = "") {
 
       document.getElementById("number").value = id;
 
-      const knownTypes = [
-        "قلاب فولفو",
-        "لوبد فولفو",
-        "وايت فولفو",
-        "لوبد",
-        "لوبد مرسيدس",
-        "قلاب مرسيدس",
-        "وايت",
-        "دينا",
-        "سطحة",
-        "ونش",
-        "حافلة",
-        "دينا ونش",
-        "دينا سطحة",
-        "قريدر",
-        "شيول جي سي بي",
-        "جي سي بي",
-        "بوكلين",
-        "بلدوزر",
-        "بوبكات",
-      ];
-      typeSelect.value = knownTypes.includes(data.type) ? data.type : "اخرى";
+      typeSelect.value = isKnownType(data.type) ? data.type : "اخرى";
       typeOther.value = typeSelect.value === "اخرى" ? data.type : "";
       typeOther.style.display = typeSelect.value === "اخرى" ? "block" : "none";
 
@@ -1023,7 +983,7 @@ document.addEventListener("click", () => {
 // =================== تفريغ النموذج ===================
 function clearForm() {
   document.getElementById("number").value = "";
-  typeSelect.value = "قلاب مرسيدس";
+  typeSelect.value = equipmentTypes.length ? equipmentTypes[0].name : "اخرى";
   typeOther.value = "";
   typeOther.style.display = "none";
   document.getElementById("date").value = "";
@@ -1329,8 +1289,8 @@ document.getElementById("viewTableBtn").addEventListener("click", async () => {
 //                    الصفحات (Navbar) + تسجيل الدخول
 // =====================================================================
 let authReady = false;
-const PAGES = ["home", "vehicles", "followups", "meters", "export"];
-const ADMIN_PAGES = new Set(["vehicles", "followups", "meters", "export"]);
+const PAGES = ["home", "vehicles", "followups", "meters", "types", "export"];
+const ADMIN_PAGES = new Set(["vehicles", "followups", "meters", "types", "export"]);
 
 function route() {
   let page = (location.hash || "#home").slice(1);
@@ -1348,6 +1308,7 @@ function route() {
     .forEach((a) => a.classList.toggle("active", a.dataset.page === page));
   if (isAdmin && page === "vehicles") loadVehicles();
   if (isAdmin && page === "followups") loadFollowups();
+  if (isAdmin && page === "types") resetTypesDraft();
   closeNavMenu();
   window.scrollTo({ top: 0 });
 }
@@ -1424,6 +1385,7 @@ document.getElementById("logoutNavBtn").addEventListener("click", () => {
 onAuthStateChanged(auth, (user) => {
   isAdmin = !!user;
   authReady = true;
+  loadEquipmentTypes();
   document.body.classList.toggle("is-admin", isAdmin);
   document.body.classList.remove("auth-pending");
   if (isAdmin) {
@@ -1554,10 +1516,10 @@ function tsToDate(ts) {
   return typeof ts.toDate === "function" ? ts.toDate() : new Date(ts);
 }
 
-function buildTextFromItems(items, createdAt) {
+function buildTextFromItems(items, createdAt, title) {
   const d = createdAt || new Date();
   const dateText = `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}`;
-  let text = `المتابعة اليومية للزيوت / تاريخ: ${dateText}\n\n`;
+  let text = `${title || "المتابعة اليومية للزيوت"} / تاريخ: ${dateText}\n\n`;
   const byType = {};
   items.forEach((it) => (byType[it.type] = (byType[it.type] || []).concat(it)));
   Object.keys(byType)
@@ -2412,7 +2374,10 @@ renderMeters();
 (function setupHomeDots() {
   const navbar = document.getElementById("navbar");
   const dots = [...document.querySelectorAll("#homeDots button")];
-  const sections = dots.map((d) => document.getElementById(d.dataset.target));
+  const sectionDots = dots.filter((d) => !d.dataset.block);
+  const rowDot = dots.find((d) => d.dataset.block);
+  const sections = sectionDots.map((d) => document.getElementById(d.dataset.target));
+  const rowEl = rowDot ? document.getElementById(rowDot.dataset.target) : null;
 
   // ارتفاع الناف بار يُستخدم لضبط ارتفاع الشاشة وموضع التمرير
   const setNavH = () =>
@@ -2424,22 +2389,241 @@ renderMeters();
     d.addEventListener("click", () =>
       document
         .getElementById(d.dataset.target)
-        .scrollIntoView({ behavior: "smooth", block: "start" }),
+        .scrollIntoView({ behavior: "smooth", block: d.dataset.block || "start" }),
     ),
   );
 
-  // تمييز النقطة الخاصة بالشاشة الظاهرة
-  const setActive = (id) =>
-    dots.forEach((d) => d.classList.toggle("active", d.dataset.target === id));
-  const io = new IntersectionObserver(
-    (entries) =>
-      entries.forEach((en) => {
-        if (en.isIntersecting) setActive(en.target.id);
-      }),
-    { rootMargin: "-45% 0px -50% 0px" },
-  );
+  // تمييز النقطة الخاصة بالمكان الظاهر
+  let sectionActive = sections[0].id;
+  let rowActive = false;
+  const refresh = () => {
+    const activeId = rowActive && rowDot ? rowDot.dataset.target : sectionActive;
+    dots.forEach((d) => d.classList.toggle("active", d.dataset.target === activeId));
+  };
+  const opts = { rootMargin: "-45% 0px -50% 0px" };
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach((en) => {
+      if (en.isIntersecting) sectionActive = en.target.id;
+    });
+    refresh();
+  }, opts);
   sections.forEach((sec) => io.observe(sec));
+  if (rowEl) {
+    new IntersectionObserver((entries) => {
+      entries.forEach((en) => (rowActive = en.isIntersecting));
+      refresh();
+    }, opts).observe(rowEl);
+  }
 })();
+
+// =====================================================================
+//                     أنواع المعدات (إضافة / تعديل / حذف + الممشى)
+// =====================================================================
+function renderTypeSelect() {
+  const cur = typeSelect.value;
+  typeSelect.innerHTML = "";
+  equipmentTypes.forEach((t) => {
+    const o = document.createElement("option");
+    o.value = t.name;
+    o.textContent = t.name;
+    typeSelect.appendChild(o);
+  });
+  const other = document.createElement("option");
+  other.value = "اخرى";
+  other.textContent = "أخرى";
+  typeSelect.appendChild(other);
+  if ([...typeSelect.options].some((o) => o.value === cur)) typeSelect.value = cur;
+  typeOther.style.display = typeSelect.value === "اخرى" ? "block" : "none";
+}
+
+function sanitizeTypes(arr) {
+  const seen = new Set();
+  const out = [];
+  (arr || []).forEach((t) => {
+    const name = String(t?.name ?? "").trim();
+    if (!name || name === "اخرى" || name === "أخرى" || seen.has(name)) return;
+    seen.add(name);
+    out.push({ name, interval: Math.max(0, Number(t.interval) || 0) });
+  });
+  return out;
+}
+
+// تحديث كل ما يعتمد على الأنواع (القائمة + الألوان المحسوبة)
+function afterTypesChanged() {
+  renderTypeSelect();
+  updateKmDiffLive();
+  autosaveSkipOnce = true; // إعادة الرسم لا تعني تعديل المتابعة
+  updateOutput();
+  if (isAdmin && allVehiclesData.length) renderVehicles(null, "");
+}
+
+async function loadEquipmentTypes() {
+  try {
+    const snap = await getDoc(doc(db, "settings", "equipmentTypes"));
+    if (snap.exists() && Array.isArray(snap.data().types)) {
+      const list = sanitizeTypes(snap.data().types);
+      if (list.length) equipmentTypes = list;
+    }
+  } catch (err) {
+    console.warn("تعذر تحميل أنواع المعدات، سيتم استخدام القائمة الافتراضية", err);
+  }
+  afterTypesChanged();
+}
+
+// ---------- صفحة إدارة الأنواع ----------
+let typesDraft = []; // [{orig, name, interval}]
+
+function resetTypesDraft() {
+  typesDraft = equipmentTypes.map((t) => ({ orig: t.name, name: t.name, interval: t.interval }));
+  renderTypesManager();
+}
+
+function renderTypesManager() {
+  const list = document.getElementById("typesList");
+  if (!list) return;
+  list.innerHTML = "";
+  typesDraft.forEach((row, i) => {
+    const div = document.createElement("div");
+    div.className = "type-row";
+
+    const nameIn = document.createElement("input");
+    nameIn.value = row.name;
+    nameIn.placeholder = "اسم النوع";
+    nameIn.addEventListener("input", () => (row.name = nameIn.value));
+
+    const kmIn = document.createElement("input");
+    kmIn.type = "number";
+    kmIn.min = "0";
+    kmIn.value = row.interval;
+    kmIn.placeholder = "مثال: 5000";
+    kmIn.addEventListener("input", () => (row.interval = kmIn.value));
+
+    const count = document.createElement("span");
+    count.className = "type-count";
+    const n = row.orig ? allVehiclesData.filter((v) => v.data.type === row.orig).length : 0;
+    count.textContent = row.orig ? n : "جديد";
+
+    const del = document.createElement("button");
+    del.className = "meter-icon danger";
+    del.title = "حذف النوع";
+    del.textContent = "🗑";
+    del.addEventListener("click", () => {
+      typesDraft.splice(i, 1);
+      renderTypesManager();
+    });
+
+    div.append(nameIn, kmIn, count, del);
+    list.appendChild(div);
+  });
+}
+
+document.getElementById("typeAddRowBtn").addEventListener("click", () => {
+  typesDraft.push({ orig: null, name: "", interval: 0 });
+  renderTypesManager();
+  const inputs = document.querySelectorAll("#typesList .type-row input");
+  inputs[inputs.length - 2]?.focus();
+});
+
+document.getElementById("typesSaveBtn").addEventListener("click", async () => {
+  const rows = typesDraft.map((r) => ({
+    orig: r.orig,
+    name: String(r.name).trim(),
+    interval: Math.max(0, Number(r.interval) || 0),
+  }));
+
+  // تحقق
+  if (rows.some((r) => !r.name)) {
+    alert("يوجد نوع بدون اسم. اكتب الاسم أو احذف السطر.");
+    return;
+  }
+  if (rows.some((r) => r.name === "اخرى" || r.name === "أخرى")) {
+    alert("الاسم «أخرى» محجوز للنظام، اختر اسمًا ثانيًا.");
+    return;
+  }
+  const names = rows.map((r) => r.name);
+  const dup = names.find((n, i) => names.indexOf(n) !== i);
+  if (dup) {
+    alert(`الاسم «${dup}» مكرر.`);
+    return;
+  }
+
+  // تغيير الأسماء → ننقل المعدات المسجلة للاسم الجديد
+  const renames = rows
+    .filter((r) => r.orig && r.orig !== r.name)
+    .map((r) => ({
+      from: r.orig,
+      to: r.name,
+      ids: allVehiclesData.filter((v) => v.data.type === r.orig).map((v) => v.id),
+    }));
+  const renamedCount = renames.reduce((a, r) => a + r.ids.length, 0);
+
+  // أنواع محذوفة ما زالت عليها معدات
+  const keptOrigs = new Set(rows.map((r) => r.orig).filter(Boolean));
+  const removed = equipmentTypes
+    .filter((t) => !keptOrigs.has(t.name))
+    .map((t) => ({ name: t.name, n: allVehiclesData.filter((v) => v.data.type === t.name).length }))
+    .filter((r) => r.n > 0);
+
+  let msg = "حفظ تغييرات أنواع المعدات؟";
+  if (renamedCount) msg += `\n\n✏️ سيتم تحديث نوع ${renamedCount} معدة مسجلة للأسماء الجديدة.`;
+  if (removed.length)
+    msg +=
+      "\n\n🗑 أنواع محذوفة عليها معدات (ستبقى المعدات باسمها القديم وتظهر تحت «أخرى» عند التعديل):\n" +
+      removed.map((r) => `• ${r.name} (${r.n})`).join("\n");
+  if (!confirm(msg)) return;
+
+  const btn = document.getElementById("typesSaveBtn");
+  btn.disabled = true;
+  try {
+    // 1) نقل المعدات للأسماء الجديدة
+    const ops = renames.flatMap((r) => r.ids.map((id) => ({ id, to: r.to })));
+    for (let i = 0; i < ops.length; i += 400) {
+      const batch = writeBatch(db);
+      ops.slice(i, i + 400).forEach((o) => batch.update(doc(db, "vehicles", o.id), { type: o.to }));
+      await batch.commit();
+    }
+    // 2) حفظ قائمة الأنواع
+    const list = sanitizeTypes(rows);
+    await setDoc(doc(db, "settings", "equipmentTypes"), { types: list, updatedAt: new Date() });
+    equipmentTypes = list;
+    await loadVehicles();
+    afterTypesChanged();
+    resetTypesDraft();
+    alert("✅ تم حفظ أنواع المعدات");
+  } catch (err) {
+    console.error(err);
+    alert("❌ تعذر الحفظ: " + (err.code || err.message));
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+// =====================================================================
+//         زر: نسخ المعدات الحمراء (من المركبات المخزنة وليس المتابعة)
+// =====================================================================
+document.getElementById("copyRedStoredBtn").addEventListener("click", () => {
+  const btn = document.getElementById("copyRedStoredBtn");
+  if (!allVehiclesData.length) {
+    alert("قائمة المركبات المخزنة غير محمّلة أو فارغة");
+    return;
+  }
+  const reds = allVehiclesData.filter((v) =>
+    getStatusEmoji(v.data.type, v.data.currentKm, v.data.lastKm, v.data.manualColor).includes("🔴"),
+  );
+  if (!reds.length) {
+    alert("لا توجد معدات حمراء (تحتاج تغيير زيت) في المركبات المخزنة");
+    return;
+  }
+  const items = reds.map((v) => ({ type: v.data.type, number: v.id, data: v.data }));
+  navigator.clipboard.writeText(
+    buildTextFromItems(items, new Date(), "المعدات التي تحتاج تغيير زيت 🔴"),
+  );
+  const old = btn.textContent;
+  btn.textContent = `✔ تم نسخ ${reds.length} معدة`;
+  setTimeout(() => (btn.textContent = old), 1800);
+});
+
+renderTypeSelect();
 
 updateFollowupStatus();
 route();
