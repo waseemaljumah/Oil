@@ -2406,5 +2406,40 @@ window.addEventListener("resize", () => {
 
 renderMeters();
 
+// =====================================================================
+//        الرئيسية: شاشتان (النموذج / التقرير) + نقاط التنقل على اليمين
+// =====================================================================
+(function setupHomeDots() {
+  const navbar = document.getElementById("navbar");
+  const dots = [...document.querySelectorAll("#homeDots button")];
+  const sections = dots.map((d) => document.getElementById(d.dataset.target));
+
+  // ارتفاع الناف بار يُستخدم لضبط ارتفاع الشاشة وموضع التمرير
+  const setNavH = () =>
+    document.documentElement.style.setProperty("--nav-h", navbar.offsetHeight + "px");
+  setNavH();
+  window.addEventListener("resize", setNavH);
+
+  dots.forEach((d) =>
+    d.addEventListener("click", () =>
+      document
+        .getElementById(d.dataset.target)
+        .scrollIntoView({ behavior: "smooth", block: "start" }),
+    ),
+  );
+
+  // تمييز النقطة الخاصة بالشاشة الظاهرة
+  const setActive = (id) =>
+    dots.forEach((d) => d.classList.toggle("active", d.dataset.target === id));
+  const io = new IntersectionObserver(
+    (entries) =>
+      entries.forEach((en) => {
+        if (en.isIntersecting) setActive(en.target.id);
+      }),
+    { rootMargin: "-45% 0px -50% 0px" },
+  );
+  sections.forEach((sec) => io.observe(sec));
+})();
+
 updateFollowupStatus();
 route();

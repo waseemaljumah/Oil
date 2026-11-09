@@ -865,3 +865,41 @@ body.dark .meter-row.th { background: #2d3748; }
 
 .km-date-box { margin-top: -2px; font-size: 13px; border-style: solid; border-color: #cbd5e0; background: #f7fafc; }
 body.dark .km-date-box { background: #2d3748; border-color: #4a5568; }
+
+/* =================== الرئيسية: شاشتان + نقاط التنقل =================== */
+.home-screen {
+  min-height: calc(100vh - var(--nav-h, 56px) - 20px);
+  scroll-margin-top: calc(var(--nav-h, 56px) + 8px);
+  padding-bottom: 24px;
+}
+.page-dots {
+  position: fixed;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 900;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 10px 6px;
+  background: rgba(26, 32, 44, 0.35);
+  border-radius: 20px;
+  backdrop-filter: blur(4px);
+}
+.page-dots button {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  background: transparent;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.25);
+  transition: transform 0.2s, background 0.2s;
+}
+.page-dots button:hover { transform: scale(1.2); background: rgba(255,255,255,0.5); }
+.page-dots button.active { background: #4a90e2; border-color: #fff; transform: scale(1.25); }
+@media (max-width: 600px) {
+  .page-dots { right: 4px; gap: 12px; padding: 8px 4px; }
+  .page-dots button { width: 12px; height: 12px; }
+}
