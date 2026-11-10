@@ -126,6 +126,42 @@ let allVehiclesData = [];
 let loadedKmInfo = null; // {currentKm, date} للمعدة المحمّلة في النموذج (لعرض تاريخ آخر تعديل للممشى)
 const selectedSession = new Set(); // أرقام المعدات المحددة بالـ checkbox في المتابعة اليومية
 
+// =================== المدة منذ آخر تغيير زيت (للعرض فقط) ===================
+function arUnit(n, one, two, few, many) {
+  if (n === 1) return one;
+  if (n === 2) return two;
+  if (n >= 3 && n <= 10) return `${n} ${few}`;
+  return `${n} ${many}`;
+}
+function durationSince(dateStr) {
+  if (!dateStr) return "—";
+  const [y, m, d] = dateStr.split("-").map(Number);
+  if (!y || !m || !d) return "—";
+  const start = new Date(y, m - 1, d);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const days = Math.round((today - start) / 86400000);
+  if (days < 0) return "تاريخ مستقبلي";
+  if (days === 0) return "اليوم";
+
+  let yy = today.getFullYear() - start.getFullYear();
+  let mm = today.getMonth() - start.getMonth();
+  let dd = today.getDate() - start.getDate();
+  if (dd < 0) {
+    mm--;
+    dd += new Date(today.getFullYear(), today.getMonth(), 0).getDate();
+  }
+  if (mm < 0) {
+    yy--;
+    mm += 12;
+  }
+  const parts = [];
+  if (yy) parts.push(arUnit(yy, "سنة", "سنتين", "سنوات", "سنة"));
+  if (mm) parts.push(arUnit(mm, "شهر", "شهرين", "أشهر", "شهر"));
+  if (dd) parts.push(arUnit(dd, "يوم", "يومين", "أيام", "يومًا"));
+  return `${days} يوم` + (yy || mm ? ` (${parts.join(" و")})` : "");
+}
+
 // =================== الممشى منذ آخر تغيير + اللون (مباشر) ===================
 function updateKmDiffLive() {
   const diffEl = document.getElementById("kmDiffLive");
@@ -169,6 +205,10 @@ function updateKmDiffLive() {
       colorSelect.value === "auto" ? autoEmojis : colorSelect.value;
   }
 
+  // المدة منذ آخر تغيير زيت (للعرض فقط ولا تُكتب في المتابعة)
+  const durEl = document.getElementById("durLive");
+  if (durEl) durEl.textContent = durationSince(document.getElementById("date").value);
+
   // تاريخ آخر تعديل للممشى الحالي (للعرض فقط)
   const kmDateEl = document.getElementById("kmUpdatedLive");
   if (kmDateEl) {
@@ -179,6 +219,7 @@ function updateKmDiffLive() {
   }
 }
 [
+  document.getElementById("date"),
   typeSelect,
   typeOther,
   currentKmSelect,
@@ -250,13 +291,9 @@ function getStatusEmoji(type, currentKmRaw, lastKm, manualColor) {
 }
 
 // =================== دالة الحفظ المشتركة ===================
-async function saveVehicle(addToSession) {
+// قراءة قيم النموذج بنفس صيغة الحفظ (تُستخدم للحفظ ولنسخ المعدة الحالية)
+function readFormVehicle() {
   const number = document.getElementById("number").value.trim();
-  if (!number) {
-    alert("ادخل رقم المعدة");
-    return;
-  }
-
   const typeVal =
     typeSelect.value === "اخرى" ? typeOther.value : typeSelect.value;
   const filterVal =
@@ -282,6 +319,50 @@ async function saveVehicle(addToSession) {
       ? cur.value - Number(lastKmStored)
       : 0;
 
+  return { number, typeVal, filterVal, dateVal, currentKmStored, lastKmStored, kmDiff };
+}
+
+let savingVehicle = false;
+async function saveVehicle(addToSession) {
+  if (savingVehicle) return; // منع الضغط المتكرر أثناء الحفظ
+  const {
+    number,
+    typeVal,
+    filterVal,
+    dateVal,
+    currentKmStored,
+    lastKmStored,
+    kmDiff,
+  } = readFormVehicle();
+  if (!number) {
+    alert("ادخل رقم المعدة");
+    return;
+  }
+  savingVehicle = true;
+  document.querySelectorAll(".form-actions button").forEach((b) => (b.disabled = true));
+  try {
+    await saveVehicleCore(addToSession, {
+      number,
+      typeVal,
+      filterVal,
+      dateVal,
+      currentKmStored,
+      lastKmStored,
+      kmDiff,
+    });
+  } catch (err) {
+    console.error(err);
+    alert("❌ تعذر الحفظ: " + (err.code || err.message));
+  } finally {
+    savingVehicle = false;
+    document.querySelectorAll(".form-actions button").forEach((b) => (b.disabled = false));
+  }
+}
+
+async function saveVehicleCore(
+  addToSession,
+  { number, typeVal, filterVal, dateVal, currentKmStored, lastKmStored, kmDiff },
+) {
   // تاريخ آخر تعديل للممشى الحالي: يتحدث تلقائيًا فقط إذا تغيّر الممشى الحالي (أو معدة جديدة)
   let prevData = null;
   try {
@@ -328,6 +409,29 @@ async function saveVehicle(addToSession) {
 
 // =================== حفظ + إضافة للمتابعة ===================
 saveBtn.addEventListener("click", () => saveVehicle(true));
+
+// نسخ المعدة الحالية في النموذج (بدون حفظ) بنفس صيغة المتابعة
+document.getElementById("copyFormBtn").addEventListener("click", () => {
+  const f = readFormVehicle();
+  if (!f.number) {
+    alert("ادخل رقم المعدة");
+    return;
+  }
+  const data = {
+    type: f.typeVal,
+    date: f.dateVal,
+    currentKm: f.currentKmStored,
+    lastKm: f.lastKmStored,
+    kmSinceLastChange: f.kmDiff,
+    filter: f.filterVal,
+    manualColor: colorSelect.value || "auto",
+  };
+  navigator.clipboard.writeText(entryCopyText(f.typeVal, { number: f.number, data }));
+  const btn = document.getElementById("copyFormBtn");
+  const old = btn.textContent;
+  btn.textContent = "✔ تم النسخ";
+  setTimeout(() => (btn.textContent = old), 1200);
+});
 
 // =================== حفظ فقط ===================
 saveSilentBtn.addEventListener("click", () => saveVehicle(false));

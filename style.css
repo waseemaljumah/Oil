@@ -920,3 +920,31 @@ body.dark .km-date-box { background: #2d3748; border-color: #4a5568; }
 }
 .page-dots button.red-dot { border-color: #ffb3b3; }
 .page-dots button.red-dot.active { background: #e05555; }
+
+/* =================== أزرار حفظ النموذج =================== */
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.form-actions button {
+  margin: 0;
+  padding: 10px 8px;
+  font-size: 14px;
+  flex: 1 1 140px;
+}
+.form-actions #saveBtn { flex: 2 1 240px; background: #27ae60; }
+.form-actions #saveBtn:hover { background: #1f8f4e; }
+.btn-soft { background: #6c8ebf; }
+.btn-soft:hover { background: #587aab; }
+.form-actions button:disabled { opacity: 0.6; cursor: wait; }
+
+/* صندوق الممشى/اللون/المدة */
+.km-diff-box {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 16px;
+}
+.kb-item { white-space: nowrap; }

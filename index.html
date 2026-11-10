@@ -125,7 +125,11 @@
       </div>
     </div>
 
-    <div class="km-diff-box">الممشى منذ آخر تغيير: <b id="kmDiffLive">-</b> &nbsp;|&nbsp; اللون: <b id="colorLive">🟢</b></div>
+    <div class="km-diff-box">
+      <span class="kb-item">الممشى منذ آخر تغيير: <b id="kmDiffLive">-</b></span>
+      <span class="kb-item">اللون: <b id="colorLive">🟢</b></span>
+      <span class="kb-item">المدة منذ آخر تغيير: <b id="durLive">—</b></span>
+    </div>
     <div class="km-diff-box km-date-box">📅 تاريخ آخر تعديل للممشى الحالي: <b id="kmUpdatedLive">—</b></div>
 
     <div class="form-row compact">
@@ -154,8 +158,11 @@
       </div>
     </div>
 
-    <button id="saveBtn">حفظ / تحديث / اضافة للمتابعة اليومية</button>
-    <button id="saveSilentBtn" style="background:#6c8ebf;">حفظ / تحديث</button>
+    <div class="form-actions">
+      <button id="saveBtn" type="button">✅ حفظ وإضافة للمتابعة اليومية</button>
+      <button id="saveSilentBtn" type="button" class="btn-soft">💾 حفظ / تحديث فقط</button>
+      <button id="copyFormBtn" type="button" class="btn-gray">📋 نسخ المعدة</button>
+    </div>
   </div>
 
         </div>
