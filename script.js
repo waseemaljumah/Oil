@@ -371,6 +371,30 @@ async function saveVehicleCore(
   } catch (err) {
     console.error(err);
   }
+
+  // تنبيه إذا كان الممشى الحالي أو ممشى آخر تغيير زيت أقل من المسجل حاليًا
+  if (prevData) {
+    const toNum = (v) =>
+      v === "" || v === null || v === undefined || isNaN(Number(v)) ? null : Number(v);
+    const warnings = [];
+    const prevCur = toNum(prevData.currentKm);
+    const newCur = toNum(currentKmStored);
+    if (prevCur !== null && newCur !== null && newCur < prevCur) {
+      warnings.push(`• الممشى الحالي المدخل (${newCur}) أقل من المسجل حاليًا (${prevCur})`);
+    }
+    const prevLast = toNum(prevData.lastKm);
+    const newLast = toNum(lastKmStored);
+    if (prevLast !== null && newLast !== null && newLast < prevLast) {
+      warnings.push(`• ممشى آخر تغيير زيت المدخل (${newLast}) أقل من المسجل حاليًا (${prevLast})`);
+    }
+    if (warnings.length) {
+      const ok = confirm(
+        `⚠️ تنبيه للمعدة رقم ${number}:\n\n${warnings.join("\n")}\n\nهل تريد المتابعة والحفظ؟`,
+      );
+      if (!ok) return; // رفض: لا يتم الحفظ وتبقى البيانات في النموذج للتعديل
+    }
+  }
+
   let currentKmUpdatedAt;
   if (!prevData || String(prevData.currentKm) !== String(currentKmStored)) {
     currentKmUpdatedAt = meterDateKey();
