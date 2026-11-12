@@ -33,6 +33,8 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 let isAdmin = false; // يتحدد من حالة تسجيل الدخول
+// وعد يتحقق بـ true إذا تم تحميل الأنواع من قاعدة البيانات بنجاح (يستخدمه تحديث statusColor)
+let typesReady = Promise.resolve(false);
 
 const saveBtn = document.getElementById("saveBtn");
 const saveSilentBtn = document.getElementById("saveSilentBtn");
@@ -290,6 +292,43 @@ function getStatusEmoji(type, currentKmRaw, lastKm, manualColor) {
   return emojis.length > 0 ? emojis : ["🟢"];
 }
 
+// =================== لون الحالة المحفوظ في قاعدة البيانات (statusColor) ===================
+// نفس اللون المعروض على الشاشة بالضبط (يشمل اللون اليدوي)، كنص واحد مثل "🔴" أو "🔵⚫"
+function statusColorOf(d) {
+  return getStatusEmoji(d.type, d.currentKm, d.lastKm, d.manualColor).join("");
+}
+
+// تحديث جماعي: يكتب statusColor فقط للمعدات اللي لونها المحسوب يختلف عن المحفوظ (للأدمن فقط)
+let syncingStatusColors = false;
+async function syncStatusColors() {
+  if (!isAdmin || syncingStatusColors) return;
+  // لا نحدّث إلا بعد تحميل أنواع المعدات من قاعدة البيانات بنجاح، عشان الحدود تكون الصحيحة
+  if (!(await typesReady)) {
+    console.warn("تم تخطي تحديث statusColor: لم يتم تحميل أنواع المعدات");
+    return;
+  }
+  syncingStatusColors = true;
+  try {
+    const changes = allVehiclesData
+      .map((v) => ({ v, color: statusColorOf(v.data) }))
+      .filter(({ v, color }) => v.data.statusColor !== color);
+    for (let i = 0; i < changes.length; i += 400) {
+      if (!isAdmin) return; // تم تسجيل الخروج أثناء التحديث
+      const batch = writeBatch(db);
+      changes
+        .slice(i, i + 400)
+        .forEach(({ v, color }) => batch.update(doc(db, "vehicles", v.id), { statusColor: color }));
+      await batch.commit();
+      changes.slice(i, i + 400).forEach(({ v, color }) => (v.data.statusColor = color));
+    }
+    if (changes.length) console.info(`تم تحديث statusColor لـ ${changes.length} معدة`);
+  } catch (err) {
+    console.error("تعذر تحديث statusColor", err);
+  } finally {
+    syncingStatusColors = false;
+  }
+}
+
 // =================== دالة الحفظ المشتركة ===================
 // قراءة قيم النموذج بنفس صيغة الحفظ (تُستخدم للحفظ ولنسخ المعدة الحالية)
 function readFormVehicle() {
@@ -413,6 +452,8 @@ async function saveVehicleCore(
     manualColor: colorSelect.value || "auto",
     updatedAt: new Date(),
   };
+  await typesReady; // التأكد من تحميل حدود الأنواع قبل حساب اللون
+  data.statusColor = statusColorOf(data);
 
   await setDoc(doc(db, "vehicles", number), data);
 
@@ -1513,11 +1554,14 @@ document.getElementById("logoutNavBtn").addEventListener("click", () => {
 onAuthStateChanged(auth, (user) => {
   isAdmin = !!user;
   authReady = true;
-  loadEquipmentTypes();
+  typesReady = loadEquipmentTypes();
   document.body.classList.toggle("is-admin", isAdmin);
   document.body.classList.remove("auth-pending");
   if (isAdmin) {
-    loadVehicles();
+    // بعد تحميل المعدات: تحديث جماعي لـ statusColor (ينتظر تحميل الأنواع داخليًا)
+    loadVehicles()
+      .then(syncStatusColors)
+      .catch((err) => console.error(err));
     startMetersSync();
   } else {
     stopMetersSync();
@@ -2586,16 +2630,19 @@ function afterTypesChanged() {
 }
 
 async function loadEquipmentTypes() {
+  let ok = false;
   try {
     const snap = await getDoc(doc(db, "settings", "equipmentTypes"));
     if (snap.exists() && Array.isArray(snap.data().types)) {
       const list = sanitizeTypes(snap.data().types);
       if (list.length) equipmentTypes = list;
     }
+    ok = true;
   } catch (err) {
     console.warn("تعذر تحميل أنواع المعدات، سيتم استخدام القائمة الافتراضية", err);
   }
   afterTypesChanged();
+  return ok;
 }
 
 // ---------- صفحة إدارة الأنواع ----------
@@ -2714,8 +2761,10 @@ document.getElementById("typesSaveBtn").addEventListener("click", async () => {
     const list = sanitizeTypes(rows);
     await setDoc(doc(db, "settings", "equipmentTypes"), { types: list, updatedAt: new Date() });
     equipmentTypes = list;
+    typesReady = Promise.resolve(true);
     await loadVehicles();
     afterTypesChanged();
+    await syncStatusColors(); // الحدود أو الأسماء تغيّرت: تحديث ألوان المعدات المتأثرة
     resetTypesDraft();
     alert("✅ تم حفظ أنواع المعدات");
   } catch (err) {
