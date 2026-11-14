@@ -948,3 +948,109 @@ body.dark .km-date-box { background: #2d3748; border-color: #4a5568; }
   gap: 4px 16px;
 }
 .kb-item { white-space: nowrap; }
+
+/* =====================================================================
+   الحسابات والصلاحيات وسجل التعديلات
+   ===================================================================== */
+body:not(.signed-in) .signed-in-only { display: none !important; }
+body.signed-in .signed-out-only { display: none !important; }
+.nav-links a[hidden] { display: none !important; }
+.nav-user {
+  color: #e2e8f0;
+  font-size: 13px;
+  font-weight: bold;
+  padding: 0 6px;
+  white-space: nowrap;
+  align-self: center;
+}
+
+/* ---------- المستخدمين ---------- */
+.users-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.users-head h3 { margin: 0; }
+.users-head button { width: auto; margin: 0; }
+.user-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px;
+  margin-top: 10px;
+}
+.user-card.disabled { opacity: 0.65; }
+.user-name { font-weight: bold; font-size: 15px; }
+.user-meta { font-size: 12px; color: #718096; margin: 4px 0 6px; direction: rtl; }
+.user-btns { display: flex; flex-wrap: wrap; gap: 6px; }
+.user-btns button { width: auto; margin: 0; }
+.user-badge { font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: normal; }
+.user-badge.on { background: #e6f6ec; color: #1f7a45; }
+.user-badge.off { background: #fde8e8; color: #b42318; }
+.perm-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.perm-chip { font-size: 11px; padding: 2px 8px; border-radius: 10px; }
+.perm-chip.perm-hidden { background: #edf2f7; color: #718096; }
+.perm-chip.perm-view { background: #e3eefc; color: #1a4f8b; }
+.perm-chip.perm-edit { background: #e6f6ec; color: #1f7a45; }
+
+.user-modal-box { max-width: 520px; width: calc(100% - 24px); max-height: 92vh; overflow-y: auto; }
+.perm-quick { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 8px; }
+.perm-quick button { width: auto; margin: 0; }
+.perm-grid { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.perm-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.perm-label { font-size: 14px; }
+.perm-btns { display: flex; gap: 4px; }
+.perm-btn {
+  width: auto;
+  margin: 0;
+  padding: 6px 12px;
+  font-size: 13px;
+  background: #edf2f7;
+  color: #4a5568;
+  border: 2px solid transparent;
+}
+.perm-btn:hover { filter: brightness(0.95); background: #e2e8f0; }
+.perm-btn.perm-hidden.selected { background: #718096; color: #fff; }
+.perm-btn.perm-view.selected { background: #4a90e2; color: #fff; }
+.perm-btn.perm-edit.selected { background: #27ae60; color: #fff; }
+
+/* ---------- السجل ---------- */
+.audit-top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.audit-top button { width: auto; margin: 0; }
+.audit-total { font-size: 14px; }
+#auditMoreBtn { margin-top: 10px; }
+.audit-row { border: 1px solid #e2e8f0; border-radius: 8px; margin-top: 6px; overflow: hidden; }
+.audit-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.audit-head:hover { background: rgba(74, 144, 226, 0.07); }
+.audit-head input[type="checkbox"] { width: auto; margin: 0; }
+.audit-action { padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: bold; color: #fff; }
+.audit-action.create { background: #27ae60; }
+.audit-action.update { background: #4a90e2; }
+.audit-action.delete { background: #e05555; }
+.audit-record { font-weight: bold; }
+.audit-section, .audit-time, .audit-count { color: #718096; font-size: 12px; }
+.audit-arrow { margin-inline-start: auto; color: #a0aec0; }
+.audit-table-wrap { padding: 0 10px 10px; overflow-x: auto; }
+.audit-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.audit-table th, .audit-table td { border: 1px solid #e2e8f0; padding: 5px 6px; text-align: right; vertical-align: top; word-break: break-word; }
+.audit-table th { background: #f7fafc; }
+.audit-table td.before { color: #c53030; background: #fff5f5; }
+.audit-table td.after { color: #276749; background: #f0fff4; }
+.audit-email { font-size: 11px; color: #a0aec0; margin-top: 6px; }
+
+body.dark .user-card, body.dark .audit-row,
+body.dark .audit-table th, body.dark .audit-table td { border-color: #4a5568; }
+body.dark .audit-table th { background: #3a4a5c; }
+body.dark .audit-table td.before { background: #4a2a2a; color: #feb2b2; }
+body.dark .audit-table td.after { background: #22422f; color: #9ae6b4; }
+body.dark .perm-btn { background: #3a4a5c; color: #e2e8f0; }
+body.dark .perm-chip.perm-hidden { background: #3a4a5c; color: #cbd5e0; }
+body.dark .modal-box { color: #e2e8f0; }

@@ -2,18 +2,27 @@ import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/9.23.
 import {
   getFirestore,
   doc,
-  setDoc,
   getDoc,
-  deleteDoc,
   collection,
   getDocs,
   onSnapshot,
   arrayUnion,
-  writeBatch,
+  query,
+  orderBy,
+  limit,
+  startAfter,
+  where,
+  getCountFromServer,
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+// نسخ setDoc / updateDoc / deleteDoc / writeBatch اللي تكتب سجل التعديلات تلقائيًا
+import { setDoc, updateDoc, deleteDoc, writeBatch, initAudit } from "./audit.js";
 import {
   getAuth,
+  initializeAuth,
+  inMemoryPersistence,
   signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
   signOut,
   signInAnonymously,
   onAuthStateChanged,
@@ -32,7 +41,130 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
-let isAdmin = false; // يتحدد من حالة تسجيل الدخول
+// =================== الأدوار والصلاحيات ===================
+// المالك: نفس قائمة الإيميلات الموجودة في قواعد Firestore (firestore.rules → isOwner)
+const OWNER_EMAILS = ["waseem.w133@gmail.com"];
+// أقسام الموقع (لكل مستخدم: مخفي / مشاهدة / تعديل)
+const SECTIONS = [
+  { key: "home", label: "الرئيسية" },
+  { key: "vehicles", label: "المركبات المخزنة" },
+  { key: "followups", label: "المتابعات المحفوظة" },
+  { key: "meters", label: "وصول العدادات" },
+  { key: "types", label: "أنواع المعدات" },
+  { key: "export", label: "التصدير" },
+];
+const SECTION_KEYS = SECTIONS.map((s) => s.key);
+const OWNER_PAGES = new Set(["users", "audit"]); // لوحة الإدارة: للمالك فقط
+const PAGE_LABELS = Object.fromEntries(SECTIONS.map((s) => [s.key, s.label]));
+PAGE_LABELS.users = "إدارة المستخدمين";
+PAGE_LABELS.audit = "سجل التعديلات";
+const PERM_LABELS = { hidden: "مخفي", view: "مشاهدة", edit: "تعديل" };
+
+let authUser = null; // المستخدم المسجّل في Firebase Auth
+let isOwner = false; // المالك
+let userProfile = null; // ملف المستخدم من users/{uid} (لغير المالك)
+let currentPage = "home";
+let ownerName = ""; // اسم المالك (يظهر في السجل بدل الإيميل)
+let auditEnabled = true; // settings/audit.enabled
+
+// داخل أي قسم: isAdmin = "يقدر يعدّل هذا القسم". خارج الأقسام (لوحة الإدارة): المالك فقط.
+// يتحدّث تلقائيًا في applyScope() عند تغيير القسم أو الصلاحيات، فكل الأزرار والشروط
+// الموجودة اللي تعتمد على isAdmin تشتغل حسب صلاحية القسم بدون تعديل كل صفحة.
+let isAdmin = false;
+
+// صلاحية القسم للمستخدم الحالي: "hidden" | "view" | "edit"
+function perm(section) {
+  if (isOwner) return "edit";
+  if (authUser) {
+    if (!userProfile || userProfile.disabled) return "hidden";
+    const p = userProfile.permissions?.[section];
+    return p === "edit" || p === "view" ? p : "hidden";
+  }
+  return section === "home" ? "view" : "hidden"; // الزائر: مثل قبل بالضبط
+}
+const canEdit = (section) => perm(section) === "edit";
+const canView = (section) => perm(section) !== "hidden";
+// حساب مسجّل وله وصول (المالك أو مستخدم مفعّل)
+const isStaff = () => isOwner || (!!authUser && !!userProfile && !userProfile.disabled);
+// من يقدر يحدّث statusColor للمعدات (يكتب في vehicles)
+const canSyncColors = () => isOwner || canEdit("home") || canEdit("vehicles") || canEdit("types");
+
+function currentActorName() {
+  if (!authUser) return "";
+  if (isOwner) return ownerName || authUser.email || "المالك";
+  return userProfile?.name || authUser.email || "";
+}
+
+// =================== إعداد سجل التعديلات ===================
+const FIELD_LABELS = {
+  type: "نوع المعدة",
+  date: "تاريخ آخر تغيير زيت",
+  currentKm: "الممشى الحالي",
+  lastKm: "ممشى آخر تغيير زيت",
+  kmSinceLastChange: "الممشى منذ آخر تغيير",
+  kmDiff: "الممشى منذ آخر تغيير",
+  filter: "حالة فلتر الزيت",
+  manualColor: "اللون اليدوي",
+  name: "الاسم",
+  items: "المعدات",
+  count: "العدد",
+  number: "رقم المعدة",
+  meterAvailable: "يوجد عداد",
+  lastReceivedDate: "آخر وصول للعداد",
+  dates: "تواريخ وصول العداد",
+  types: "أنواع المعدات",
+  interval: "الممشى لتغيير الزيت",
+  email: "الإيميل",
+  disabled: "الحساب موقوف",
+  enabled: "تشغيل السجل",
+  ownerName: "اسم المالك",
+  permissions: "الصلاحيات",
+};
+function auditFieldLabel(path) {
+  if (!path) return "—";
+  const segs = String(path).split(".");
+  const i = segs.indexOf("permissions");
+  if (i !== -1 && segs[i + 1]) return `صلاحية: ${PAGE_LABELS[segs[i + 1]] || segs[i + 1]}`;
+  const last = segs[segs.length - 1];
+  return FIELD_LABELS[last] || last;
+}
+function auditFormatValue(path, v) {
+  if (String(path).includes("permissions") && typeof v === "string" && PERM_LABELS[v]) return PERM_LABELS[v];
+  if (String(path).endsWith("manualColor") && v === "auto") return "تلقائي";
+  return undefined;
+}
+function auditRecordName(col, id, before, after) {
+  const d = after || before || {};
+  switch (col) {
+    case "vehicles":
+      return `معدة ${id}`;
+    case "dailyFollowups":
+      return `متابعة: ${d.name || id}`;
+    case "equipment":
+      return `عداد معدة ${id}`;
+    case "meterReceipts":
+      return `وصول عداد ${id}`;
+    case "users":
+      return `مستخدم: ${d.name || d.email || id}`;
+    case "settings":
+      return id === "equipmentTypes" ? "أنواع المعدات" : id === "audit" ? "إعدادات السجل" : `الإعدادات: ${id}`;
+    default:
+      return `${col}/${id}`;
+  }
+}
+initAudit({
+  db,
+  actor: () =>
+    authUser && isStaff()
+      ? { uid: authUser.uid, name: currentActorName(), email: authUser.email || "" }
+      : null,
+  section: () => currentPage,
+  sectionLabel: (k) => PAGE_LABELS[k] || k,
+  enabled: () => auditEnabled,
+  recordName: auditRecordName,
+  fieldLabel: auditFieldLabel,
+  formatValue: auditFormatValue,
+});
 // وعد يتحقق بـ true إذا تم تحميل الأنواع من قاعدة البيانات بنجاح (يستخدمه تحديث statusColor)
 let typesReady = Promise.resolve(false);
 
@@ -301,7 +433,7 @@ function statusColorOf(d) {
 // تحديث جماعي: يكتب statusColor فقط للمعدات اللي لونها المحسوب يختلف عن المحفوظ (للأدمن فقط)
 let syncingStatusColors = false;
 async function syncStatusColors() {
-  if (!isAdmin || syncingStatusColors) return;
+  if (!canSyncColors() || syncingStatusColors) return;
   // لا نحدّث إلا بعد تحميل أنواع المعدات من قاعدة البيانات بنجاح، عشان الحدود تكون الصحيحة
   if (!(await typesReady)) {
     console.warn("تم تخطي تحديث statusColor: لم يتم تحميل أنواع المعدات");
@@ -313,7 +445,7 @@ async function syncStatusColors() {
       .map((v) => ({ v, color: statusColorOf(v.data) }))
       .filter(({ v, color }) => v.data.statusColor !== color);
     for (let i = 0; i < changes.length; i += 400) {
-      if (!isAdmin) return; // تم تسجيل الخروج أثناء التحديث
+      if (!canSyncColors()) return; // تم تسجيل الخروج أو تغيّرت الصلاحيات أثناء التحديث
       const batch = writeBatch(db);
       changes
         .slice(i, i + 400)
@@ -646,7 +778,7 @@ deleteBtn.addEventListener("click", async () => {
 
 // =================== تحميل المركبات ===================
 async function loadVehicles() {
-  if (!isAdmin) return;
+  if (!isStaff()) return;
   const querySnapshot = await getDocs(collection(db, "vehicles"));
   allVehiclesData = [];
   querySnapshot.forEach((docItem) => {
@@ -790,7 +922,7 @@ function renderVehicles(filterColors = null, searchTerm = "") {
           <span><strong>رقم المعدة:</strong> ${v.id} ${emojiDisplay} &nbsp;|&nbsp; <strong>الممشى منذ آخر تغيير:</strong> ${kmDisplay}</span>
           <div class="item-btns">
             <button class="btn-view" data-id="${v.id}">👁 عرض</button>
-            <button class="btn-delete" data-id="${v.id}">🗑 حذف</button>
+            <button class="btn-delete admin-only" data-id="${v.id}">🗑 حذف</button>
           </div>
         </div>
         <div class="vehicle-details" id="details-${v.id}" style="display:none;">
@@ -800,7 +932,7 @@ function renderVehicles(filterColors = null, searchTerm = "") {
           <p><strong>الممشى منذ آخر تغيير:</strong> ${kmDisplay}</p>
           <p><strong>تاريخ آخر تغيير زيت:</strong> ${v.data.date}</p>
           <p><strong>حالة فلتر الزيت:</strong> ${v.data.filter}</p>
-          <button class="btn-edit" data-id="${v.id}">✏️ تعديل</button>
+          ${canEdit("home") ? `<button class="btn-edit" data-id="${v.id}">✏️ تعديل</button>` : ""}
         </div>
       `;
       groupBody.appendChild(div);
@@ -1458,30 +1590,59 @@ document.getElementById("viewTableBtn").addEventListener("click", async () => {
 //                    الصفحات (Navbar) + تسجيل الدخول
 // =====================================================================
 let authReady = false;
-const PAGES = ["home", "vehicles", "followups", "meters", "types", "export"];
-const ADMIN_PAGES = new Set(["vehicles", "followups", "meters", "types", "export"]);
+const PAGES = [...SECTION_KEYS, "users", "audit"];
 
-function route() {
+function pageAllowed(page) {
+  if (OWNER_PAGES.has(page)) return isOwner;
+  return canView(page);
+}
+
+// يطبّق صلاحية القسم الحالي: isAdmin + كلاسات الصفحة + روابط القائمة + اسم المستخدم
+function applyScope(page) {
+  currentPage = page;
+  isAdmin = OWNER_PAGES.has(page) ? isOwner : canEdit(page);
+  const cl = document.body.classList;
+  cl.toggle("is-admin", isAdmin);
+  cl.toggle("signed-in", !!authUser);
+  cl.toggle("is-owner", isOwner);
+  document.querySelectorAll(".nav-links a[data-page]").forEach((a) => {
+    a.hidden = !pageAllowed(a.dataset.page);
+  });
+  // زر تسجيل وصول العدادات (في الرئيسية) يحتاج صلاحية تعديل وصول العدادات
+  const reg = document.getElementById("registerMetersBtn");
+  if (reg) reg.style.display = canEdit("meters") ? "" : "none";
+  const nameEl = document.getElementById("navUserName");
+  if (nameEl) nameEl.textContent = authUser ? `👤 ${currentActorName()}` : "";
+}
+
+function route(opts = {}) {
   let page = (location.hash || "#home").slice(1);
   if (!PAGES.includes(page)) page = "home";
-  if (ADMIN_PAGES.has(page) && !isAdmin) {
-    // قبل اكتمال التحقق من الدخول لا نغيّر الرابط (عشان إعادة تحميل الصفحة ترجع لنفس القسم)
-    if (authReady) history.replaceState(null, "", "#home");
-    page = "home";
+  const pending = !authReady || (authUser && !isOwner && !userProfile);
+  if (!pageAllowed(page)) {
+    // مخفي: يتحول لأول قسم مسموح. (قبل اكتمال التحقق ما نغيّر الرابط عشان إعادة التحميل ترجع لنفس القسم)
+    const first = PAGES.find(pageAllowed) || "home";
+    if (!pending && page !== first) history.replaceState(null, "", "#" + first);
+    page = first;
   }
+  applyScope(page);
   document
     .querySelectorAll(".page")
     .forEach((p) => p.classList.toggle("active", p.id === "page-" + page));
   document
     .querySelectorAll(".nav-links a")
     .forEach((a) => a.classList.toggle("active", a.dataset.page === page));
-  if (isAdmin && page === "vehicles") loadVehicles();
-  if (isAdmin && page === "followups") loadFollowups();
-  if (isAdmin && page === "types") resetTypesDraft();
-  closeNavMenu();
-  window.scrollTo({ top: 0 });
+  if (isStaff() && page === "vehicles") loadVehicles();
+  if (isStaff() && page === "followups") loadFollowups();
+  if (isStaff() && page === "types") resetTypesDraft();
+  if (isOwner && page === "users") renderUsersPage();
+  if (isOwner && page === "audit") loadAuditPage(true);
+  if (!opts.keepScroll) {
+    closeNavMenu();
+    window.scrollTo({ top: 0 });
+  }
 }
-window.addEventListener("hashchange", route);
+window.addEventListener("hashchange", () => route());
 
 // ---------- نافذة الدخول ----------
 const loginModal = document.getElementById("loginModal");
@@ -1548,22 +1709,122 @@ loginModal.addEventListener("click", (e) => {
   if (e.target === loginModal) closeLogin();
 });
 document.getElementById("logoutNavBtn").addEventListener("click", () => {
-  if (confirm("تسجيل الخروج؟")) signOut(auth);
+  if (confirm("تسجيل الخروج؟")) doSignOut();
 });
 
+// ---------- مراقبة ملف المستخدم + إعدادات السجل ----------
+let profileUnsub = null;
+let auditSettingsUnsub = null;
+let signingOut = false;
+
+function stopWatchers() {
+  profileUnsub?.();
+  profileUnsub = null;
+  auditSettingsUnsub?.();
+  auditSettingsUnsub = null;
+  stopUsersWatch();
+}
+
+async function doSignOut(message) {
+  if (signingOut) return;
+  signingOut = true;
+  stopWatchers();
+  stopMetersSync();
+  if (message) alert(message);
+  try {
+    await signOut(auth);
+  } catch (err) {
+    console.error(err);
+  } finally {
+    signingOut = false;
+  }
+}
+
+function watchAuditSettings() {
+  auditSettingsUnsub = onSnapshot(
+    doc(db, "settings", "audit"),
+    (snap) => {
+      const d = snap.exists() ? snap.data() : {};
+      auditEnabled = d.enabled !== false; // افتراضيًا: السجل شغّال
+      ownerName = typeof d.ownerName === "string" ? d.ownerName : "";
+      applyScope(currentPage);
+      renderAuditToggle();
+      const on = document.getElementById("ownerNameInput");
+      if (on && document.activeElement !== on) on.value = ownerName;
+    },
+    (err) => console.warn("تعذر قراءة إعدادات السجل", err),
+  );
+}
+
+// العدادات تلزم من يشوف قسمها، ومن يعدّل الرئيسية (زر تسجيل وصول العدادات)
+function ensureMetersSync() {
+  const need = isOwner || canView("meters") || canEdit("home");
+  if (need && !meterUnsubs.length) startMetersSync();
+  else if (!need && meterUnsubs.length) stopMetersSync();
+}
+
+// أول ما تتأكد صلاحيات الحساب
+function onAccessReady() {
+  // بعد تحميل المعدات: تحديث جماعي لـ statusColor (ينتظر تحميل الأنواع داخليًا)
+  loadVehicles()
+    .then(() => (canSyncColors() ? syncStatusColors() : null))
+    .catch((err) => console.error(err));
+  ensureMetersSync();
+  if (isOwner) startUsersWatch();
+  route();
+}
+// تغيّرت صلاحيات المستخدم وهو داخل الموقع: تطبيق فوري بدون خروج ودخول
+function onAccessChanged() {
+  ensureMetersSync();
+  route({ keepScroll: true });
+}
+
 onAuthStateChanged(auth, (user) => {
-  isAdmin = !!user;
+  stopWatchers();
+  authUser = user;
+  isOwner = !!user && OWNER_EMAILS.includes(String(user.email || "").toLowerCase());
+  userProfile = null;
   authReady = true;
   typesReady = loadEquipmentTypes();
-  document.body.classList.toggle("is-admin", isAdmin);
-  document.body.classList.remove("auth-pending");
-  if (isAdmin) {
-    // بعد تحميل المعدات: تحديث جماعي لـ statusColor (ينتظر تحميل الأنواع داخليًا)
-    loadVehicles()
-      .then(syncStatusColors)
-      .catch((err) => console.error(err));
-    startMetersSync();
-  } else {
+
+  if (user) {
+    watchAuditSettings();
+    if (isOwner) {
+      document.body.classList.remove("auth-pending");
+      onAccessReady();
+      return;
+    }
+    // مستخدم عادي: ننتظر ملفه من users/{uid} ونراقبه لحظيًا
+    document.body.classList.add("auth-pending");
+    profileUnsub = onSnapshot(
+      doc(db, "users", user.uid),
+      (snap) => {
+        if (!snap.exists()) {
+          doSignOut("⚠️ حسابك غير مفعّل في النظام. تواصل مع المالك.");
+          return;
+        }
+        const p = snap.data();
+        if (p.disabled) {
+          doSignOut("⛔ تم إيقاف حسابك. تواصل مع المالك.");
+          return;
+        }
+        const first = !userProfile;
+        userProfile = p;
+        document.body.classList.remove("auth-pending");
+        if (first) onAccessReady();
+        else onAccessChanged();
+      },
+      (err) => {
+        if (signingOut || !auth.currentUser) return;
+        console.error(err);
+        doSignOut("تعذر التحقق من صلاحيات حسابك. حاول مرة ثانية.");
+      },
+    );
+    return;
+  }
+
+  {
+    document.body.classList.remove("auth-pending");
     stopMetersSync();
     // تنظيف أي بيانات عند الخروج
     allVehiclesData = [];
@@ -1719,7 +1980,7 @@ function scheduleAutosave() {
     autosaveSkipOnce = false;
     return;
   }
-  if (!isAdmin) return;
+  if (!canEdit("home")) return;
   clearTimeout(autosaveTimer);
   autosavePending = false;
   if (sessionIsEmpty()) return; // لا نكتب متابعة فارغة فوق المحفوظة
@@ -1732,7 +1993,7 @@ function scheduleAutosave() {
 async function autosaveFollowup() {
   clearTimeout(autosaveTimer);
   autosavePending = false;
-  if (!isAdmin || sessionIsEmpty()) return;
+  if (!canEdit("home") || sessionIsEmpty()) return;
 
   const items = sessionToItems();
   const isNew = !currentFollowupId;
@@ -1912,7 +2173,10 @@ async function loadFollowups() {
       }
     });
 
-    actions.append(openBtn, copyBtn2, delBtn);
+    delBtn.classList.add("admin-only"); // الحذف: صلاحية تعديل المتابعات
+    // فتح للتعديل ينقلها للمتابعة اليومية في الرئيسية: يحتاج صلاحية تعديل الرئيسية
+    if (canEdit("home")) actions.append(openBtn);
+    actions.append(copyBtn2, delBtn);
     card.append(info, actions);
     listEl.appendChild(card);
   });
@@ -2127,14 +2391,14 @@ function renderMeters() {
     last.textContent = meterFmtDate(getLastDate(e));
 
     const edit = document.createElement("button");
-    edit.className = "meter-icon";
+    edit.className = "meter-icon admin-only";
     edit.dataset.act = "toggle";
     edit.dataset.num = e.number;
     edit.title = "تعديل حالة العداد (يوجد / لا يوجد عداد)";
     edit.textContent = "✏️";
 
     const del = document.createElement("button");
-    del.className = "meter-icon danger";
+    del.className = "meter-icon danger admin-only";
     del.dataset.act = "delete";
     del.dataset.num = e.number;
     del.title = "حذف من القائمة الأساسية";
@@ -2626,7 +2890,7 @@ function afterTypesChanged() {
   updateKmDiffLive();
   autosaveSkipOnce = true; // إعادة الرسم لا تعني تعديل المتابعة
   updateOutput();
-  if (isAdmin && allVehiclesData.length) renderVehicles(null, "");
+  if (isStaff() && allVehiclesData.length) renderVehicles(null, "");
 }
 
 async function loadEquipmentTypes() {
@@ -2664,6 +2928,7 @@ function renderTypesManager() {
     const nameIn = document.createElement("input");
     nameIn.value = row.name;
     nameIn.placeholder = "اسم النوع";
+    nameIn.disabled = !isAdmin; // مشاهدة فقط
     nameIn.addEventListener("input", () => (row.name = nameIn.value));
 
     const kmIn = document.createElement("input");
@@ -2671,6 +2936,7 @@ function renderTypesManager() {
     kmIn.min = "0";
     kmIn.value = row.interval;
     kmIn.placeholder = "مثال: 5000";
+    kmIn.disabled = !isAdmin;
     kmIn.addEventListener("input", () => (row.interval = kmIn.value));
 
     const count = document.createElement("span");
@@ -2679,7 +2945,7 @@ function renderTypesManager() {
     count.textContent = row.orig ? n : "جديد";
 
     const del = document.createElement("button");
-    del.className = "meter-icon danger";
+    del.className = "meter-icon danger admin-only";
     del.title = "حذف النوع";
     del.textContent = "🗑";
     del.addEventListener("click", () => {
@@ -2801,6 +3067,607 @@ document.getElementById("copyRedStoredBtn").addEventListener("click", () => {
 });
 
 renderTypeSelect();
+
+// =====================================================================
+//                    أدوات بناء العناصر (آمنة من حقن HTML)
+// =====================================================================
+function h(tag, props = {}, ...children) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(props || {})) {
+    if (v === undefined || v === null || v === false) continue;
+    if (k === "class") e.className = v;
+    else if (k === "text") e.textContent = v;
+    else if (k.startsWith("on") && typeof v === "function") e.addEventListener(k.slice(2), v);
+    else if (k in e && typeof v !== "string") e[k] = v;
+    else e.setAttribute(k, v === true ? "" : v);
+  }
+  children.flat().forEach((c) => {
+    if (c === null || c === undefined || c === false) return;
+    e.append(c instanceof Node ? c : String(c));
+  });
+  return e;
+}
+function fmtAnyDate(v) {
+  const d = tsToDate(v);
+  return d && !isNaN(d) ? fmtDateTime(d) : "—";
+}
+
+// =====================================================================
+//                 إدارة المستخدمين (للمالك فقط)
+// =====================================================================
+let usersList = [];
+let usersUnsub = null;
+
+function startUsersWatch() {
+  stopUsersWatch();
+  usersUnsub = onSnapshot(
+    collection(db, "users"),
+    (snap) => {
+      usersList = snap.docs
+        .map((d) => ({ uid: d.id, ...d.data() }))
+        .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "ar"));
+      if (currentPage === "users") renderUsersList();
+      if (currentPage === "audit") renderAuditFilters();
+    },
+    (err) => console.error("تعذر تحميل المستخدمين", err),
+  );
+}
+function stopUsersWatch() {
+  usersUnsub?.();
+  usersUnsub = null;
+  usersList = [];
+}
+
+function renderUsersPage() {
+  const on = document.getElementById("ownerNameInput");
+  if (on && document.activeElement !== on) on.value = ownerName;
+  renderUsersList();
+}
+
+function permChips(perms = {}) {
+  return h(
+    "div",
+    { class: "perm-chips" },
+    SECTIONS.map((s) => {
+      const p = perms[s.key] === "edit" || perms[s.key] === "view" ? perms[s.key] : "hidden";
+      return h("span", { class: `perm-chip perm-${p}`, text: `${s.label}: ${PERM_LABELS[p]}` });
+    }),
+  );
+}
+
+function renderUsersList() {
+  const list = document.getElementById("usersList");
+  if (!list) return;
+  list.innerHTML = "";
+  if (!usersList.length) {
+    list.append(h("div", { class: "guest-empty", text: "لا يوجد مستخدمين بعد. اضغط «مستخدم جديد»." }));
+    return;
+  }
+  usersList.forEach((u) => {
+    const status = u.disabled
+      ? h("span", { class: "user-badge off", text: "⛔ موقوف" })
+      : h("span", { class: "user-badge on", text: "✅ مفعّل" });
+    list.append(
+      h(
+        "div",
+        { class: "user-card" + (u.disabled ? " disabled" : "") },
+        h(
+          "div",
+          { class: "user-info" },
+          h("div", { class: "user-name" }, u.name || "بدون اسم", " ", status),
+          h("div", { class: "user-meta", text: `${u.email || ""} · أُنشئ ${fmtAnyDate(u.createdAt)}` }),
+          permChips(u.permissions),
+        ),
+        h(
+          "div",
+          { class: "user-btns" },
+          h("button", { class: "btn-sm btn-blue", text: "✏️ تعديل", onclick: () => openUserModal(u) }),
+          h("button", {
+            class: "btn-sm btn-gray",
+            text: u.disabled ? "▶️ تشغيل" : "⏸ إيقاف",
+            onclick: () => toggleUserDisabled(u),
+          }),
+          h("button", { class: "btn-sm btn-gray", text: "🔑 رابط كلمة المرور", onclick: () => sendUserReset(u) }),
+          h("button", { class: "btn-sm btn-red", text: "🗑 حذف", onclick: () => deleteUserProfile(u) }),
+        ),
+      ),
+    );
+  });
+}
+
+// ---------- اسم المالك ----------
+document.getElementById("ownerNameSaveBtn").addEventListener("click", async () => {
+  if (!isOwner) return;
+  const v = document.getElementById("ownerNameInput").value.trim();
+  try {
+    await setDoc(doc(db, "settings", "audit"), { ownerName: v }, { merge: true });
+    alert("✅ تم حفظ اسم المالك");
+  } catch (err) {
+    console.error(err);
+    alert("❌ تعذر الحفظ: " + (err.code || err.message));
+  }
+});
+
+// ---------- نافذة مستخدم جديد / تعديل ----------
+const userModal = document.getElementById("userModal");
+let userModalUid = null; // null = مستخدم جديد
+let userModalPerms = {};
+
+function renderPermGrid() {
+  const grid = document.getElementById("umPerms");
+  grid.innerHTML = "";
+  SECTIONS.forEach((s) => {
+    const cur = userModalPerms[s.key] || "hidden";
+    grid.append(
+      h(
+        "div",
+        { class: "perm-row" },
+        h("span", { class: "perm-label", text: s.label }),
+        h(
+          "div",
+          { class: "perm-btns" },
+          ["hidden", "view", "edit"].map((p) =>
+            h("button", {
+              type: "button",
+              class: `perm-btn perm-${p}` + (cur === p ? " selected" : ""),
+              text: PERM_LABELS[p],
+              onclick: () => {
+                userModalPerms[s.key] = p;
+                renderPermGrid();
+              },
+            }),
+          ),
+        ),
+      ),
+    );
+  });
+}
+
+function openUserModal(u) {
+  userModalUid = u ? u.uid : null;
+  userModalPerms = {};
+  SECTIONS.forEach((s) => {
+    const p = u?.permissions?.[s.key];
+    userModalPerms[s.key] = p === "edit" || p === "view" ? p : "hidden";
+  });
+  document.getElementById("umTitle").textContent = u ? "✏️ تعديل مستخدم" : "➕ مستخدم جديد";
+  document.getElementById("umName").value = u?.name || "";
+  document.getElementById("umEmail").value = u?.email || "";
+  document.getElementById("umPassword").value = "";
+  document.getElementById("umNewOnly").style.display = u ? "none" : "";
+  document.getElementById("umEmailNote").style.display = u ? "" : "none";
+  document.getElementById("umEmail").disabled = !!u;
+  document.getElementById("umError").textContent = "";
+  renderPermGrid();
+  userModal.hidden = false;
+  document.getElementById("umName").focus();
+}
+function closeUserModal() {
+  userModal.hidden = true;
+  document.getElementById("umPassword").value = "";
+}
+document.getElementById("newUserBtn").addEventListener("click", () => openUserModal(null));
+document.getElementById("umCancelBtn").addEventListener("click", closeUserModal);
+userModal.addEventListener("click", (e) => {
+  if (e.target === userModal) closeUserModal();
+});
+document.querySelectorAll("#userModal [data-all]").forEach((b) =>
+  b.addEventListener("click", () => {
+    SECTIONS.forEach((s) => (userModalPerms[s.key] = b.dataset.all));
+    renderPermGrid();
+  }),
+);
+
+// إنشاء الحساب عن طريق Firebase App ثاني منفصل، عشان المالك ما يطلع من حسابه
+let creatorAuth = null;
+function getCreatorAuth() {
+  if (creatorAuth) return creatorAuth;
+  const app2 = getApps().find((a) => a.name === "userCreator") || initializeApp(firebaseConfig, "userCreator");
+  try {
+    creatorAuth = initializeAuth(app2, { persistence: inMemoryPersistence });
+  } catch {
+    creatorAuth = getAuth(app2);
+  }
+  return creatorAuth;
+}
+
+function createUserErrorText(code) {
+  switch (code) {
+    case "auth/email-already-in-use":
+      return "الإيميل مستخدم مسبقًا. إذا كان لمستخدم محذوف، احذف حسابه من Firebase Authentication أولًا.";
+    case "auth/invalid-email":
+      return "صيغة الإيميل غير صحيحة";
+    case "auth/weak-password":
+      return "كلمة المرور ضعيفة (6 أحرف على الأقل)";
+    case "auth/network-request-failed":
+      return "تعذر الاتصال بالإنترنت";
+    default:
+      return "تعذر إنشاء الحساب: " + (code || "");
+  }
+}
+
+document.getElementById("umSaveBtn").addEventListener("click", async () => {
+  if (!isOwner) return;
+  const errEl = document.getElementById("umError");
+  const name = document.getElementById("umName").value.trim();
+  const email = document.getElementById("umEmail").value.trim().toLowerCase();
+  const password = document.getElementById("umPassword").value;
+  const permissions = { ...userModalPerms };
+  errEl.textContent = "";
+  if (!name) return (errEl.textContent = "اكتب الاسم");
+
+  const btn = document.getElementById("umSaveBtn");
+  btn.disabled = true;
+  try {
+    if (userModalUid) {
+      await setDoc(doc(db, "users", userModalUid), { name, permissions }, { merge: true });
+      closeUserModal();
+      alert("✅ تم تحديث المستخدم، والصلاحيات تنطبق عليه فورًا");
+      return;
+    }
+    if (!email) return (errEl.textContent = "اكتب الإيميل");
+    if (OWNER_EMAILS.includes(email)) return (errEl.textContent = "هذا إيميل المالك");
+    if (password.length < 6) return (errEl.textContent = "كلمة المرور 6 أحرف على الأقل");
+
+    const a2 = getCreatorAuth();
+    let uid;
+    try {
+      const cred = await createUserWithEmailAndPassword(a2, email, password);
+      uid = cred.user.uid;
+    } catch (err) {
+      errEl.textContent = createUserErrorText(err.code);
+      return;
+    }
+    try {
+      await setDoc(doc(db, "users", uid), {
+        name,
+        email,
+        permissions,
+        disabled: false,
+        createdAt: new Date(),
+      });
+    } catch (err) {
+      console.error(err);
+      errEl.textContent =
+        "تم إنشاء الحساب في Firebase Authentication لكن تعذر حفظ ملفه. احذفه من Authentication وأعد المحاولة. (" +
+        (err.code || err.message) +
+        ")";
+      return;
+    } finally {
+      signOut(a2).catch(() => {});
+    }
+    closeUserModal();
+    alert(`✅ تم إنشاء حساب ${name}`);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+async function toggleUserDisabled(u) {
+  const next = !u.disabled;
+  if (next && !confirm(`إيقاف حساب ${u.name || u.email}؟\nسيطلع من الموقع فورًا ولن يقدر يعدّل شي.`)) return;
+  try {
+    await updateDoc(doc(db, "users", u.uid), { disabled: next });
+  } catch (err) {
+    console.error(err);
+    alert("❌ تعذر التعديل: " + (err.code || err.message));
+  }
+}
+
+async function sendUserReset(u) {
+  if (!u.email) return alert("لا يوجد إيميل لهذا المستخدم");
+  if (!confirm(`إرسال رابط تغيير كلمة المرور إلى ${u.email}؟`)) return;
+  try {
+    await sendPasswordResetEmail(auth, u.email);
+    alert("✅ تم إرسال الرابط على إيميله (قد يصل في مجلد الرسائل غير المرغوبة)");
+  } catch (err) {
+    console.error(err);
+    alert("❌ تعذر الإرسال: " + (err.code || err.message));
+  }
+}
+
+async function deleteUserProfile(u) {
+  if (
+    !confirm(
+      `حذف المستخدم ${u.name || u.email}؟\n\n` +
+        "• يُحذف ملفه وصلاحياته من النظام، فما يقدر يدخل أي قسم (ولو سجّل دخول يطلع تلقائيًا).\n" +
+        "• حسابه (الإيميل وكلمة المرور) يظل في Firebase Authentication، واحذفه من هناك يدويًا إذا تبغى.",
+    )
+  )
+    return;
+  try {
+    await deleteDoc(doc(db, "users", u.uid));
+    alert(
+      "🗑 تم حذف المستخدم من النظام.\n\nتذكير: احذف حسابه يدويًا من Firebase Console ← Authentication ← Users إذا تبغى تستخدم نفس الإيميل مرة ثانية.",
+    );
+  } catch (err) {
+    console.error(err);
+    alert("❌ تعذر الحذف: " + (err.code || err.message));
+  }
+}
+
+// =====================================================================
+//                     صفحة سجل التعديلات (للمالك فقط)
+// =====================================================================
+const AUDIT_PAGE_SIZE = 200;
+const AUDIT_ACTIONS = {
+  create: { label: "إنشاء", cls: "create" },
+  update: { label: "تعديل", cls: "update" },
+  delete: { label: "حذف", cls: "delete" },
+};
+let auditEntries = [];
+let auditLastDoc = null;
+let auditHasMore = false;
+let auditLoading = false;
+const auditSelected = new Set();
+const auditOpen = new Set();
+
+function renderAuditToggle() {
+  const btn = document.getElementById("auditToggleBtn");
+  if (!btn) return;
+  btn.textContent = auditEnabled ? "🟢 السجل شغّال — اضغط للإيقاف" : "⏸ السجل موقوف — اضغط للتشغيل";
+  btn.className = auditEnabled ? "btn-green" : "btn-gray";
+}
+
+document.getElementById("auditToggleBtn").addEventListener("click", async () => {
+  if (!isOwner) return;
+  const next = !auditEnabled;
+  if (!next && !confirm("إيقاف السجل؟ وهو موقوف ما ينكتب أي تعديل.")) return;
+  try {
+    await setDoc(doc(db, "settings", "audit"), { enabled: next }, { merge: true });
+  } catch (err) {
+    console.error(err);
+    alert("❌ تعذر الحفظ: " + (err.code || err.message));
+  }
+});
+
+async function refreshAuditCount() {
+  const el = document.getElementById("auditCount");
+  try {
+    const c = await getCountFromServer(collection(db, "auditLog"));
+    el.textContent = c.data().count;
+  } catch (err) {
+    console.error(err);
+    el.textContent = "—";
+  }
+}
+
+async function loadAuditPage(reset) {
+  if (!isOwner || auditLoading) return;
+  auditLoading = true;
+  renderAuditToggle();
+  if (reset) {
+    auditEntries = [];
+    auditLastDoc = null;
+    auditSelected.clear();
+    auditOpen.clear();
+    document.getElementById("auditList").textContent = "جاري التحميل...";
+  }
+  try {
+    const parts = [collection(db, "auditLog"), orderBy("at", "desc")];
+    if (auditLastDoc) parts.push(startAfter(auditLastDoc));
+    parts.push(limit(AUDIT_PAGE_SIZE));
+    const snap = await getDocs(query(...parts));
+    snap.docs.forEach((d) => auditEntries.push({ id: d.id, ...d.data() }));
+    if (snap.docs.length) auditLastDoc = snap.docs[snap.docs.length - 1];
+    auditHasMore = snap.docs.length === AUDIT_PAGE_SIZE;
+  } catch (err) {
+    console.error(err);
+    document.getElementById("auditList").textContent = "تعذر تحميل السجل: " + (err.code || err.message);
+    auditLoading = false;
+    return;
+  }
+  auditLoading = false;
+  refreshAuditCount();
+  renderAuditFilters();
+  renderAuditList();
+}
+
+function renderAuditFilters() {
+  const uSel = document.getElementById("auditUserFilter");
+  const sSel = document.getElementById("auditSectionFilter");
+  if (!uSel || !sSel) return;
+  const curU = uSel.value;
+  const curS = sSel.value;
+  const users = new Map();
+  usersList.forEach((u) => users.set(u.uid, u.name || u.email));
+  auditEntries.forEach((e) => {
+    if (e.uid && !users.has(e.uid)) users.set(e.uid, e.name || e.email || e.uid);
+  });
+  uSel.innerHTML = "";
+  uSel.append(h("option", { value: "", text: "كل المستخدمين" }));
+  [...users.entries()]
+    .sort((a, b) => String(a[1]).localeCompare(String(b[1]), "ar"))
+    .forEach(([uid, name]) => uSel.append(h("option", { value: uid, text: name })));
+  uSel.value = [...uSel.options].some((o) => o.value === curU) ? curU : "";
+
+  sSel.innerHTML = "";
+  sSel.append(h("option", { value: "", text: "كل الأقسام" }));
+  Object.entries(PAGE_LABELS).forEach(([k, label]) => sSel.append(h("option", { value: k, text: label })));
+  sSel.value = curS;
+}
+
+function auditFiltered() {
+  const u = document.getElementById("auditUserFilter").value;
+  const s = document.getElementById("auditSectionFilter").value;
+  const term = document.getElementById("auditSearch").value.trim().toLowerCase();
+  return auditEntries.filter((e) => {
+    if (u && e.uid !== u) return false;
+    if (s && e.sectionKey !== s) return false;
+    if (term) {
+      const hay = [
+        e.name,
+        e.email,
+        e.record,
+        e.section,
+        AUDIT_ACTIONS[e.action]?.label,
+        ...(e.changes || []).flatMap((c) => [c.row, c.field, c.before, c.after]),
+      ]
+        .join(" ")
+        .toLowerCase();
+      if (!hay.includes(term)) return false;
+    }
+    return true;
+  });
+}
+
+function renderAuditList() {
+  const list = document.getElementById("auditList");
+  list.innerHTML = "";
+  const rows = auditFiltered();
+  document.getElementById("auditShown").textContent = `المعروض: ${rows.length} من ${auditEntries.length} محمّل`;
+  document.getElementById("auditDelSelBtn").textContent = `🗑 حذف المحدد (${auditSelected.size})`;
+  if (!rows.length) {
+    list.append(h("div", { class: "guest-empty", text: "لا توجد سجلات" }));
+  }
+  rows.forEach((e) => {
+    const act = AUDIT_ACTIONS[e.action] || { label: e.action || "—", cls: "update" };
+    const isOpen = auditOpen.has(e.id);
+    const cb = h("input", {
+      type: "checkbox",
+      checked: auditSelected.has(e.id),
+      onclick: (ev) => ev.stopPropagation(),
+      onchange: (ev) => {
+        ev.target.checked ? auditSelected.add(e.id) : auditSelected.delete(e.id);
+        document.getElementById("auditDelSelBtn").textContent = `🗑 حذف المحدد (${auditSelected.size})`;
+      },
+    });
+    const head = h(
+      "div",
+      {
+        class: "audit-head",
+        onclick: () => {
+          isOpen ? auditOpen.delete(e.id) : auditOpen.add(e.id);
+          renderAuditList();
+        },
+      },
+      cb,
+      h("b", { class: "audit-name", text: e.name || e.email || "—" }),
+      h("span", { class: `audit-action ${act.cls}`, text: act.label }),
+      h("span", { class: "audit-record", text: e.record || "" }),
+      h("span", { class: "audit-section", text: e.section || "" }),
+      h("span", { class: "audit-time", text: fmtAnyDate(e.at) }),
+      h("span", { class: "audit-count", text: `${e.changeCount ?? (e.changes || []).length} تغيير` }),
+      h("span", { class: "audit-arrow", text: isOpen ? "▲" : "▼" }),
+    );
+    const row = h("div", { class: "audit-row" }, head);
+    if (isOpen) {
+      row.append(
+        h(
+          "div",
+          { class: "audit-table-wrap" },
+          h(
+            "table",
+            { class: "audit-table" },
+            h("thead", {}, h("tr", {}, ["الصف", "الخانة", "قبل", "بعد"].map((t) => h("th", { text: t })))),
+            h(
+              "tbody",
+              {},
+              (e.changes || []).map((c) =>
+                h(
+                  "tr",
+                  {},
+                  h("td", { text: c.row || "—" }),
+                  h("td", { text: c.field || "" }),
+                  h("td", { class: "before", text: c.before || "" }),
+                  h("td", { class: "after", text: c.after || "" }),
+                ),
+              ),
+            ),
+          ),
+          e.email ? h("div", { class: "audit-email", text: e.email }) : null,
+        ),
+      );
+    }
+    list.append(row);
+  });
+  document.getElementById("auditMoreBtn").style.display = auditHasMore ? "" : "none";
+}
+
+["auditUserFilter", "auditSectionFilter"].forEach((id) =>
+  document.getElementById(id).addEventListener("change", renderAuditList),
+);
+document.getElementById("auditSearch").addEventListener("input", renderAuditList);
+document.getElementById("auditMoreBtn").addEventListener("click", () => loadAuditPage(false));
+document.getElementById("auditReloadBtn").addEventListener("click", () => loadAuditPage(true));
+document.getElementById("auditSelectShownBtn").addEventListener("click", () => {
+  const shown = auditFiltered();
+  const allSel = shown.length && shown.every((e) => auditSelected.has(e.id));
+  shown.forEach((e) => (allSel ? auditSelected.delete(e.id) : auditSelected.add(e.id)));
+  renderAuditList();
+});
+
+// حذف على دفعات (400 لكل دفعة) عشان يشتغل لو السجل كبير
+async function deleteAuditRefs(refs) {
+  for (let i = 0; i < refs.length; i += 400) {
+    const batch = writeBatch(db);
+    refs.slice(i, i + 400).forEach((r) => batch.delete(r));
+    await batch.commit();
+  }
+}
+async function deleteAuditByQuery(makeQuery, btn) {
+  let total = 0;
+  const old = btn.textContent;
+  btn.disabled = true;
+  try {
+    for (;;) {
+      const snap = await getDocs(makeQuery());
+      if (!snap.docs.length) break;
+      await deleteAuditRefs(snap.docs.map((d) => d.ref));
+      total += snap.docs.length;
+      btn.textContent = `⏳ تم حذف ${total}...`;
+      if (snap.docs.length < 400) break;
+    }
+  } finally {
+    btn.disabled = false;
+    btn.textContent = old;
+  }
+  return total;
+}
+
+document.getElementById("auditDelSelBtn").addEventListener("click", async () => {
+  if (!auditSelected.size) return alert("ما حددت أي سجل");
+  if (!confirm(`حذف ${auditSelected.size} سجل نهائيًا؟`)) return;
+  try {
+    await deleteAuditRefs([...auditSelected].map((id) => doc(db, "auditLog", id)));
+    alert("🗑 تم الحذف");
+  } catch (err) {
+    console.error(err);
+    alert("❌ تعذر الحذف: " + (err.code || err.message));
+  }
+  loadAuditPage(true);
+});
+
+document.getElementById("auditDelOldBtn").addEventListener("click", async (ev) => {
+  const days = Number(document.getElementById("auditOldDays").value);
+  if (!Number.isFinite(days) || days < 1) return alert("اكتب عدد أيام صحيح (1 أو أكثر)");
+  const cutoff = new Date(Date.now() - days * 86400000);
+  if (!confirm(`حذف كل السجلات الأقدم من ${days} يوم (قبل ${fmtDateTime(cutoff)})؟`)) return;
+  try {
+    const n = await deleteAuditByQuery(
+      () => query(collection(db, "auditLog"), where("at", "<", cutoff), limit(400)),
+      ev.currentTarget,
+    );
+    alert(`🗑 تم حذف ${n} سجل`);
+  } catch (err) {
+    console.error(err);
+    alert("❌ تعذر الحذف: " + (err.code || err.message));
+  }
+  loadAuditPage(true);
+});
+
+document.getElementById("auditDelAllBtn").addEventListener("click", async (ev) => {
+  if (!confirm("حذف كل السجلات نهائيًا؟\nلا يمكن التراجع.")) return;
+  if (!confirm("متأكد؟ سيتم حذف السجل بالكامل.")) return;
+  try {
+    const n = await deleteAuditByQuery(() => query(collection(db, "auditLog"), limit(400)), ev.currentTarget);
+    alert(`🗑 تم حذف ${n} سجل`);
+  } catch (err) {
+    console.error(err);
+    alert("❌ تعذر الحذف: " + (err.code || err.message));
+  }
+  loadAuditPage(true);
+});
 
 updateFollowupStatus();
 route();
